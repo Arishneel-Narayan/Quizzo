@@ -189,8 +189,8 @@ st.markdown("""
 
 # --- Quiz Master Mode ---
 def quiz_master_mode():
-    st.title("Quizzo 👨‍🏫 Quiz Master Mode")
-    st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quiz+Master+Setup", use_column_width=True)
+    st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quizzo+Quiz+Master", use_container_width=True)
+    st.markdown("<h2 style='text-align: center;'>Welcome, Quiz Master!</h2>", unsafe_allow_html=True)
     st.markdown("Select a pre-made quiz or create a new one below.")
     
     # Load available quizzes from file
@@ -288,10 +288,11 @@ def quiz_master_mode():
 
 # --- Quiz Mode ---
 def quiz_mode():
+    st.image("https://placehold.co/800x200/FFD700/ffffff?text=Quizzo+Game+Board", use_container_width=True)
+    st.markdown("<h2 style='text-align: center;'>Choose a Question</h2>", unsafe_allow_html=True)
+    
     if st.session_state.current_question_index is None:
         # Display the grid of numbers if no question is selected
-        st.title("Quizzo 🎲 The Quiz Board")
-        st.image("https://placehold.co/800x200/FFD700/ffffff?text=Choose+a+Question", use_column_width=True)
         st.markdown("Choose a question number to begin.")
         
         # Display question numbers in a grid
