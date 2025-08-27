@@ -4,6 +4,21 @@ import random
 import time
 import json
 import os
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# Global variables provided by the Canvas environment for Firestore
+appId = os.environ.get('__app_id', 'default-app-id')
+firebaseConfig = json.loads(os.environ.get('__firebase_config', '{}'))
+initialAuthToken = os.environ.get('__initial_auth_token', None)
+
+# Initialize Firebase if it hasn't been already
+if not firebase_admin._apps:
+    try:
+        cred = credentials.Certificate(firebaseConfig)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error(f"Error initializing Firebase: {e}")
 
 # Use st.session_state to manage the app's state across user interactions.
 if 'mode' not in st.session_state:
@@ -30,26 +45,35 @@ if 'timer_stage' not in st.session_state:
     st.session_state.timer_stage = 'off'
 if 'selected_quiz_name' not in st.session_state:
     st.session_state.selected_quiz_name = "Create New Quiz"
+if 'quizzes_data' not in st.session_state:
+    st.session_state.quizzes_data = {}
+
+# Firestore Database Reference
+db = firestore.client()
+quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
 
 # --- File-based Quiz Library Functions ---
-QUIZ_FILE = "quizzes.json"
-
+@st.cache_data(show_spinner="Loading quizzes...")
 def load_quizzes():
-    """Loads quiz data from the JSON file."""
-    if os.path.exists(QUIZ_FILE):
-        try:
-            with open(QUIZ_FILE, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            return {}
-    return {}
+    """Loads quiz data from Firestore."""
+    quizzes = {}
+    docs = quiz_collection_ref.stream()
+    for doc in docs:
+        quizzes[doc.id] = doc.to_dict()
+    return quizzes
 
 def save_quiz(quiz_name, quiz_data):
-    """Saves a new quiz or updates an existing one to the JSON file."""
-    all_quizzes = load_quizzes()
-    all_quizzes[quiz_name] = quiz_data
-    with open(QUIZ_FILE, 'w') as f:
-        json.dump(all_quizzes, f, indent=4)
+    """Saves a new quiz or updates an existing one to Firestore."""
+    try:
+        quiz_collection_ref.document(quiz_name).set(quiz_data)
+        st.session_state.quizzes_data = load_quizzes() # Refresh cache
+        st.success(f"Quiz '{quiz_name}' saved to the cloud successfully!")
+    except Exception as e:
+        st.error(f"Failed to save quiz to Firestore: {e}")
+
+# Load quizzes on app start
+if not st.session_state.quizzes_data:
+    st.session_state.quizzes_data = load_quizzes()
 
 # --- CSS for styling ---
 st.markdown("""
@@ -193,8 +217,8 @@ def quiz_master_mode():
     st.markdown("<h2 style='text-align: center;'>Welcome, Quiz Master!</h2>", unsafe_allow_html=True)
     st.markdown("Select a pre-made quiz or create a new one below.")
     
-    # Load available quizzes from file
-    all_quizzes = load_quizzes()
+    # Load available quizzes from Firestore
+    all_quizzes = st.session_state.quizzes_data
     quiz_options = ["Create New Quiz"] + list(all_quizzes.keys())
     
     selected_option = st.selectbox(
@@ -273,7 +297,7 @@ def quiz_master_mode():
                         "timers": st.session_state.timers
                     }
                     save_quiz(quiz_name_input, quiz_data)
-                    st.success(f"Quiz '{quiz_name_input}' saved successfully!")
+                    st.experimental_rerun()
                 else:
                     st.warning("Please enter a name for your quiz.")
         
