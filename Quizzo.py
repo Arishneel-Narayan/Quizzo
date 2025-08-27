@@ -38,9 +38,21 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
-    /* Add a subtle background image to the app */
+    /* Use multiple shades of yellow and a corporate-style background */
     body {
-        background-color: #f0f2f6;
+        background-color: #F4C430; /* Light yellow background */
+        background-image: url("https://placehold.co/1920x1080/FFF8DC/F4C430/png?text=Abstract+Corporate+Pattern");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+
+    /* Ensure the main content area is semi-transparent to see the background */
+    [data-testid="stAppViewContainer"] {
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 12px;
+        backdrop-filter: blur(5px);
     }
     
     /* Style the main app container for better centering and background */
@@ -52,27 +64,49 @@ st.markdown("""
         max-width: 100%; /* Ensure it uses full width on small screens */
     }
 
-    /* Styles for the question cards */
+    /* Styles for the question cards with better aesthetics */
     .question-card {
-        background-color: #ffffff; /* Light gray background */
+        background-color: #ffffff;
+        border: 2px solid #FFD700;
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 20px;
         margin: 10px;
         text-align: center;
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        transition: all 0.2s ease-in-out;
         cursor: pointer;
     }
 
     .question-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
     }
 
     .question-number {
         font-size: 2.5rem;
         font-weight: 600;
-        color: #4a4a4a;
+        color: #FFD700;
+    }
+    
+    .stButton>button {
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        color: white;
+        background-color: #F4C430;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stButton>button:hover {
+        background-color: #FFD700;
+        transform: translateY(-2px);
+    }
+    
+    .stButton>button:disabled {
+        background-color: #d3d3d3;
+        cursor: not-allowed;
+        box-shadow: none;
     }
 
     /* Styles for the chosen question display */
@@ -86,7 +120,7 @@ st.markdown("""
     }
 
     .chosen-question-card {
-        background: linear-gradient(135deg, #6c80ff, #5a4ff5);
+        background: linear-gradient(135deg, #FFD700, #F4C430);
         color: white;
         border-radius: 16px;
         padding: 30px;
@@ -126,27 +160,7 @@ st.markdown("""
         font-size: 3rem;
         font-weight: bold;
     }
-
-    /* Style the buttons */
-    .stButton>button {
-        transition: all 0.3s ease;
-        border-radius: 8px;
-        border: none;
-        font-weight: 600;
-        color: white;
-        background-color: #5a4ff5;
-    }
     
-    .stButton>button:hover {
-        background-color: #4a3fd4;
-        transform: translateY(-2px);
-    }
-    
-    .stButton>button:disabled {
-        background-color: #d3d3d3;
-        cursor: not-allowed;
-    }
-
     /* Animation for smooth appearance */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
@@ -159,7 +173,7 @@ st.markdown("""
 # --- Quiz Master Mode ---
 def quiz_master_mode():
     st.title("Quizzo 👨‍🏫 Quiz Master Mode")
-    st.image("https://placehold.co/800x200/5A4FF5/ffffff?text=Quiz+Master+Setup", use_column_width=True)
+    st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quiz+Master+Setup", use_column_width=True)
     st.markdown("Enter your questions and answers below to prepare the quiz.")
     
     # Form for quiz setup
@@ -213,7 +227,7 @@ def quiz_mode():
     if st.session_state.current_question_index is None:
         # Display the grid of numbers if no question is selected
         st.title("Quizzo 🎲 The Quiz Board")
-        st.image("https://placehold.co/800x200/6C80FF/ffffff?text=Choose+a+Question", use_column_width=True)
+        st.image("https://placehold.co/800x200/FFD700/ffffff?text=Choose+a+Question", use_column_width=True)
         st.markdown("Choose a question number to begin.")
         
         # Display question numbers in a grid
