@@ -30,19 +30,26 @@ except json.JSONDecodeError:
 
 initialAuthToken = os.environ.get('__initial_auth_token', None)
 
-# Initialize Firebase if it hasn't been already
+# Check if Firebase is already initialized
 if not firebase_admin._apps:
     try:
         # Before initializing, check if the credentials contain the required type field.
         if "type" not in firebaseConfig or firebaseConfig["type"] != "service_account":
             st.error("Error: Invalid Firebase credentials. The 'type' field is missing or incorrect.")
             # Do not proceed with initialization to avoid the original error
-            # This is a more user-friendly error message
         else:
             cred = credentials.Certificate(firebaseConfig)
             firebase_admin.initialize_app(cred)
+            # Now that the app is initialized, get the Firestore client
+            db = firestore.client()
+            quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
     except Exception as e:
         st.error(f"Error initializing Firebase: {e}")
+else:
+    # If the app is already initialized, just get the client
+    db = firestore.client()
+    quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
+
 
 # Use st.session_state to manage the app's state across user interactions.
 if 'mode' not in st.session_state:
@@ -72,9 +79,6 @@ if 'selected_quiz_name' not in st.session_state:
 if 'quizzes_data' not in st.session_state:
     st.session_state.quizzes_data = {}
 
-# Firestore Database Reference
-db = firestore.client()
-quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
 
 # --- File-based Quiz Library Functions ---
 @st.cache_data(show_spinner="Loading quizzes...")
