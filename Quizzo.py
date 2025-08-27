@@ -28,6 +28,32 @@ if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
 if 'timer_stage' not in st.session_state:
     st.session_state.timer_stage = 'off' # 'off', 'first_person', 'team', 'opposing_team'
+if 'selected_quiz' not in st.session_state:
+    st.session_state.selected_quiz = "Create New Quiz"
+
+# --- Quiz Library Data ---
+# This dictionary simulates a quiz library. In a real-world app, this data
+# would be loaded from a database or a file.
+quiz_library = {
+    "General Trivia": [
+        {"question": "What is the capital of France?", "answer": "Paris"},
+        {"question": "What is the largest planet in our solar system?", "answer": "Jupiter"},
+        {"question": "Which animal is known as the 'King of the Jungle'?", "answer": "Lion"},
+        {"question": "How many continents are there?", "answer": "Seven"},
+        {"question": "What is the chemical symbol for gold?", "answer": "Au"},
+        {"question": "Who painted the Mona Lisa?", "answer": "Leonardo da Vinci"},
+        {"question": "What is the freezing point of water in Celsius?", "answer": "0°C"},
+        {"question": "What is the longest river in the world?", "answer": "The Nile River"},
+    ],
+    "Science Quiz": [
+        {"question": "What force pulls objects toward the center of the Earth?", "answer": "Gravity"},
+        {"question": "What is the powerhouse of the cell?", "answer": "Mitochondria"},
+        {"question": "What gas do plants absorb from the atmosphere?", "answer": "Carbon dioxide"},
+        {"question": "Which planet is known as the Red Planet?", "answer": "Mars"},
+        {"question": "What is the chemical formula for water?", "answer": "H₂O"},
+    ],
+}
+
 
 # --- CSS for styling the cards, transitions, and background ---
 st.markdown("""
@@ -38,21 +64,16 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
-    /* Use multiple shades of yellow and a corporate-style background */
+    /* Set a clean, solid background color */
     body {
-        background-color: #F4C430; /* Light yellow background */
-        background-image: url("https://placehold.co/1920x1080/FFF8DC/F4C430/png?text=Abstract+Corporate+Pattern");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
+        background-color: #f0f2f6; /* A very light gray for a clean look */
     }
 
-    /* Ensure the main content area is semi-transparent to see the background */
+    /* Reset the container styling to remove the old background */
     [data-testid="stAppViewContainer"] {
-        background-color: rgba(255, 255, 255, 0.7);
-        border-radius: 12px;
-        backdrop-filter: blur(5px);
+        background-color: transparent;
+        border-radius: 0;
+        backdrop-filter: none;
     }
     
     /* Style the main app container for better centering and background */
@@ -67,7 +88,7 @@ st.markdown("""
     /* Styles for the question cards with better aesthetics */
     .question-card {
         background-color: #ffffff;
-        border: 2px solid #FFD700;
+        border: 2px solid #F4C430;
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 20px;
@@ -85,7 +106,7 @@ st.markdown("""
     .question-number {
         font-size: 2.5rem;
         font-weight: 600;
-        color: #FFD700;
+        color: #F4C430;
     }
     
     .stButton>button {
@@ -174,8 +195,27 @@ st.markdown("""
 def quiz_master_mode():
     st.title("Quizzo 👨‍🏫 Quiz Master Mode")
     st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quiz+Master+Setup", use_column_width=True)
-    st.markdown("Enter your questions and answers below to prepare the quiz.")
+    st.markdown("Select a pre-made quiz or create a new one below.")
     
+    # Dropdown to select a quiz from the library or create a new one
+    quiz_options = ["Create New Quiz"] + list(quiz_library.keys())
+    selected_option = st.selectbox(
+        "Choose a quiz from the library:", 
+        options=quiz_options,
+        key="quiz_selector"
+    )
+
+    # If the user selects a new quiz, update the session state
+    if selected_option != st.session_state.selected_quiz:
+        st.session_state.selected_quiz = selected_option
+        if selected_option != "Create New Quiz":
+            st.session_state.questions = quiz_library[selected_option]
+            st.session_state.num_questions = len(st.session_state.questions)
+        else:
+            st.session_state.questions = []
+            st.session_state.num_questions = 18
+        st.experimental_rerun()
+
     # Form for quiz setup
     with st.form(key='quiz_setup_form'):
         st.session_state.num_questions = st.number_input(
@@ -202,9 +242,13 @@ def quiz_master_mode():
 
         # The loop dynamically generates the input fields based on the number set above.
         for i in range(st.session_state.num_questions):
+            # Pre-fill with data from the library if a quiz was selected
+            q_text = st.session_state.questions[i]['question'] if len(st.session_state.questions) > i else ''
+            a_text = st.session_state.questions[i]['answer'] if len(st.session_state.questions) > i else ''
+
             st.markdown(f"**Question {i+1}**")
-            q = st.text_area(f"Enter Question {i+1}", key=f"q_{i}", height=50)
-            a = st.text_input(f"Enter Answer {i+1}", key=f"a_{i}")
+            q = st.text_area(f"Enter Question {i+1}", key=f"q_{i}", value=q_text, height=50)
+            a = st.text_input(f"Enter Answer {i+1}", key=f"a_{i}", value=a_text)
             
             # Store the data in a temporary dictionary for submission
             if len(st.session_state.questions) <= i:
@@ -234,6 +278,9 @@ def quiz_mode():
         cols = st.columns(6) # Display 6 cards per row
         
         # Use a shuffled list of available questions to make the order feel random
+        if not st.session_state.available_questions:
+            st.warning("All questions have been answered! Please go back to the Quiz Master to start a new quiz.")
+            
         shuffled_available = random.sample(st.session_state.available_questions, len(st.session_state.available_questions))
         
         for i in range(st.session_state.num_questions):
@@ -358,6 +405,7 @@ def quiz_mode():
         st.session_state.timer_value = 0
         st.session_state.timer_start_time = None
         st.session_state.timer_stage = 'off'
+        st.session_state.selected_quiz = "Create New Quiz"
         st.rerun()
 
 # --- Main App Logic ---
