@@ -26,8 +26,10 @@ if 'timer_value' not in st.session_state:
     st.session_state.timer_value = 0
 if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
+if 'timer_stage' not in st.session_state:
+    st.session_state.timer_stage = 'off' # 'off', 'first_person', 'team', 'opposing_team'
 
-# --- CSS for styling the cards and transitions ---
+# --- CSS for styling the cards, transitions, and background ---
 st.markdown("""
 <style>
     /* Use Inter font as per best practices */
@@ -36,6 +38,20 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
 
+    /* Add a subtle background image to the app */
+    body {
+        background-image: url("https://placehold.co/1920x1080/F5F5F5/4B5563/png?text=Quiz+Background");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+
+    /* Make the content area transparent to see the background */
+    [data-testid="stAppViewContainer"] {
+        background-color: rgba(255, 255, 255, 0);
+    }
+    
     /* Style the main app container for better centering and background */
     .main .block-container {
         padding-top: 1rem;
@@ -105,34 +121,41 @@ st.markdown("""
         animation: fadeIn 1s ease-in-out;
     }
 
-    .timers-container {
-        display: flex;
-        justify-content: space-around;
-        gap: 0.5rem;
-        margin-top: 2rem;
-        flex-wrap: wrap;
+    .timer-info-container {
+        margin-top: 1rem;
     }
 
-    .timer-card {
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 0.75rem;
-        text-align: center;
-        flex: 1;
-        min-width: 80px;
-        max-width: 120px;
-    }
-
-    .timer-label {
-        font-size: 0.8rem;
-        opacity: 0.8;
-    }
-
-    .timer-value {
+    .timer-label-text {
         font-size: 1.2rem;
+        opacity: 0.9;
+        font-weight: 600;
+    }
+
+    .timer-value-text {
+        font-size: 3rem;
         font-weight: bold;
     }
+
+    /* Style the buttons */
+    .stButton>button {
+        transition: all 0.3s ease;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        color: white;
+        background-color: #5a4ff5;
+    }
     
+    .stButton>button:hover {
+        background-color: #4a3fd4;
+        transform: translateY(-2px);
+    }
+    
+    .stButton>button:disabled {
+        background-color: #d3d3d3;
+        cursor: not-allowed;
+    }
+
     /* Animation for smooth appearance */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
@@ -149,8 +172,6 @@ def quiz_master_mode():
     
     # Form for quiz setup
     with st.form(key='quiz_setup_form'):
-        # This number input allows the quiz master to easily "add" or "minus" questions.
-        # It's a more streamlined way to handle a dynamic number of inputs than separate buttons.
         st.session_state.num_questions = st.number_input(
             'Number of Questions', 
             min_value=1, 
@@ -215,8 +236,8 @@ def quiz_mode():
                     if st.button(f"{i+1}", key=f"question_btn_{i}", use_container_width=True):
                         st.session_state.current_question_index = i
                         st.session_state.show_answer = False
-                        # Reset timer state when a new question is selected
                         st.session_state.timer_running = False
+                        st.session_state.timer_stage = 'off'
                         st.session_state.timer_value = 0
                         st.session_state.timer_start_time = None
                         st.rerun()
@@ -233,29 +254,50 @@ def quiz_mode():
             <div class="chosen-question-card">
                 <div class="chosen-question-text">{question_data['question']}</div>
         """, unsafe_allow_html=True)
-        
-        # Create a placeholder for the timer to be updated in place
-        timer_placeholder = st.empty()
 
-        # Display the countdown timer if it's running
+        # Timer logic and display
+        timer_placeholder = st.empty()
+        
         if st.session_state.timer_running:
             # Calculate the time remaining
             elapsed_time = time.time() - st.session_state.timer_start_time
             remaining_time = st.session_state.timer_value - int(elapsed_time)
             
+            # Update the metric and rerun if time is left
             if remaining_time > 0:
-                timer_placeholder.metric(label="Time Remaining", value=f"{remaining_time}s")
-                # Rerun the script every second to update the timer display
+                timer_placeholder.markdown(f"""
+                <div class="timer-info-container">
+                    <div class="timer-label-text">
+                        Timer for {st.session_state.timer_stage.replace('_', ' ').title()}
+                    </div>
+                    <div class="timer-value-text">{remaining_time}s</div>
+                </div>
+                """, unsafe_allow_html=True)
                 time.sleep(1)
                 st.rerun()
             else:
+                # Timer has run out, stop the timer and update the display
                 st.session_state.timer_running = False
-                timer_placeholder.metric(label="Time Remaining", value="Time's Up!")
+                timer_placeholder.markdown(f"""
+                <div class="timer-info-container">
+                    <div class="timer-label-text">Time's Up!</div>
+                    <div class="timer-value-text">0s</div>
+                </div>
+                """, unsafe_allow_html=True)
                 st.warning("Time's Up!")
-        else:
-            # Display the initial timer value when the timer is not running
-            timer_placeholder.metric(label="Time Remaining", value=f"{st.session_state.timers['x']}s")
+                
+        # Handle the state when the timer is not running
+        if not st.session_state.timer_running:
+            timer_label = st.session_state.timer_stage.replace('_', ' ').title() if st.session_state.timer_stage != 'off' else "No Timer Running"
+            timer_placeholder.markdown(f"""
+            <div class="timer-info-container">
+                <div class="timer-label-text">{timer_label}</div>
+                <div class="timer-value-text">--</div>
+            </div>
+            """, unsafe_allow_html=True)
 
+        st.markdown("</div></div>", unsafe_allow_html=True) # close the inner and outer divs
+        
         # Display the answer if the button is clicked
         if st.session_state.show_answer:
             st.markdown(f"""
@@ -263,46 +305,43 @@ def quiz_mode():
                 Answer: {question_data['answer']}
             </div>
             """, unsafe_allow_html=True)
-        
-        st.markdown("</div></div>", unsafe_allow_html=True) # close the inner and outer divs
-        
-        # Buttons to start the timer and show the answer
-        col1, col2, col3, col4, col5 = st.columns(5)
+
+        # Buttons to control the quiz flow
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("Start First Person Timer", use_container_width=True, disabled=st.session_state.timer_running):
+            if st.session_state.timer_stage == 'off' and st.button("Start First Person Timer", use_container_width=True):
                 st.session_state.timer_running = True
                 st.session_state.timer_value = st.session_state.timers['x']
                 st.session_state.timer_start_time = time.time()
+                st.session_state.timer_stage = 'first_person'
                 st.rerun()
-        with col2:
-            if st.button("Start Team Timer", use_container_width=True, disabled=st.session_state.timer_running):
+            elif st.session_state.timer_stage == 'first_person' and not st.session_state.timer_running and st.button("Start Team Timer", use_container_width=True):
                 st.session_state.timer_running = True
                 st.session_state.timer_value = st.session_state.timers['y']
                 st.session_state.timer_start_time = time.time()
+                st.session_state.timer_stage = 'team'
                 st.rerun()
-        with col3:
-            if st.button("Start Opposing Timer", use_container_width=True, disabled=st.session_state.timer_running):
+            elif st.session_state.timer_stage == 'team' and not st.session_state.timer_running and st.button("Start Opposing Timer", use_container_width=True):
                 st.session_state.timer_running = True
                 st.session_state.timer_value = st.session_state.timers['z']
                 st.session_state.timer_start_time = time.time()
+                st.session_state.timer_stage = 'opposing_team'
                 st.rerun()
-        with col4:
+        with col2:
             if st.button("Show Answer", use_container_width=True):
                 st.session_state.show_answer = True
-                # Stop timer when answer is shown
                 st.session_state.timer_running = False
                 st.rerun()
-        with col5:
+        with col3:
             if st.button("Back to Board", use_container_width=True):
-                # Remove the current question from the available list
                 st.session_state.available_questions.remove(q_idx)
                 st.session_state.current_question_index = None
-                # Reset timer state
                 st.session_state.timer_running = False
                 st.session_state.timer_value = 0
                 st.session_state.timer_start_time = None
+                st.session_state.timer_stage = 'off'
                 st.rerun()
-    
+
     # Button to go back to quiz master mode
     if st.button("Reset Quiz (Go to Quiz Master Mode)"):
         st.session_state.mode = 'quiz_master'
@@ -311,6 +350,7 @@ def quiz_mode():
         st.session_state.timer_running = False
         st.session_state.timer_value = 0
         st.session_state.timer_start_time = None
+        st.session_state.timer_stage = 'off'
         st.rerun()
 
 # --- Main App Logic ---
