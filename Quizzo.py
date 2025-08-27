@@ -1,4 +1,3 @@
-# %%
 # quiz_app.py
 import streamlit as st
 import random
@@ -32,10 +31,11 @@ st.markdown("""
 
     /* Style the main app container for better centering and background */
     .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
         padding-left: 1rem;
         padding-right: 1rem;
+        max-width: 100%; /* Ensure it uses full width on small screens */
     }
 
     /* Styles for the question cards */
@@ -62,19 +62,30 @@ st.markdown("""
     }
 
     /* Styles for the chosen question display */
+    .chosen-question-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh; /* Set a minimum height to fill the screen */
+        text-align: center;
+    }
+
     .chosen-question-card {
         background: linear-gradient(135deg, #6c80ff, #5a4ff5);
         color: white;
         border-radius: 16px;
-        padding: 40px;
-        text-align: center;
+        padding: 30px;
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         animation: fadeIn 0.5s ease-in-out;
+        width: 100%; /* Use full width of container */
+        max-width: 800px; /* Constrain on large screens */
     }
 
     .chosen-question-text {
         font-size: 2.5rem;
         font-weight: 600;
+        word-wrap: break-word; /* Ensure long questions wrap correctly */
     }
 
     .chosen-answer-text {
@@ -90,7 +101,7 @@ st.markdown("""
     .timers-container {
         display: flex;
         justify-content: space-around;
-        gap: 1rem;
+        gap: 0.5rem;
         margin-top: 2rem;
         flex-wrap: wrap;
     }
@@ -98,19 +109,20 @@ st.markdown("""
     .timer-card {
         background-color: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
-        padding: 1rem;
+        padding: 0.75rem;
         text-align: center;
         flex: 1;
-        min-width: 120px;
+        min-width: 80px;
+        max-width: 120px;
     }
 
     .timer-label {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         opacity: 0.8;
     }
 
     .timer-value {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         font-weight: bold;
     }
     
@@ -130,6 +142,8 @@ def quiz_master_mode():
     
     # Form for quiz setup
     with st.form(key='quiz_setup_form'):
+        # This number input allows the quiz master to easily "add" or "minus" questions.
+        # It's a more streamlined way to handle a dynamic number of inputs than separate buttons.
         st.session_state.num_questions = st.number_input(
             'Number of Questions', 
             min_value=1, 
@@ -152,7 +166,7 @@ def quiz_master_mode():
         st.markdown("---")
         st.subheader("Questions and Answers")
 
-        # Create input fields for each question and answer
+        # The loop dynamically generates the input fields based on the number set above.
         for i in range(st.session_state.num_questions):
             st.markdown(f"**Question {i+1}**")
             q = st.text_area(f"Enter Question {i+1}", key=f"q_{i}", height=50)
@@ -199,28 +213,28 @@ def quiz_mode():
                     # Display a disabled button or a placeholder for used questions
                     st.button("✅", key=f"question_btn_{i}", disabled=True, use_container_width=True)
     else:
-        # Display the selected question
+        # Display the selected question in a visually pleasing container
         q_idx = st.session_state.current_question_index
         question_data = st.session_state.questions[q_idx]
 
         st.markdown(f"""
-        <div class="chosen-question-card">
-            <div class="chosen-question-text">{question_data['question']}</div>
-            <div class="timers-container">
-                <div class="timer-card">
-                    <div class="timer-label">First Person</div>
-                    <div class="timer-value">{st.session_state.timers['x']}s</div>
+        <div class="chosen-question-container">
+            <div class="chosen-question-card">
+                <div class="chosen-question-text">{question_data['question']}</div>
+                <div class="timers-container">
+                    <div class="timer-card">
+                        <div class="timer-label">First Person</div>
+                        <div class="timer-value">{st.session_state.timers['x']}s</div>
+                    </div>
+                    <div class="timer-card">
+                        <div class="timer-label">Team</div>
+                        <div class="timer-value">{st.session_state.timers['y']}s</div>
+                    </div>
+                    <div class="timer-card">
+                        <div class="timer-label">Opposing Team</div>
+                        <div class="timer-value">{st.session_state.timers['z']}s</div>
+                    </div>
                 </div>
-                <div class="timer-card">
-                    <div class="timer-label">Team</div>
-                    <div class="timer-value">{st.session_state.timers['y']}s</div>
-                </div>
-                <div class="timer-card">
-                    <div class="timer-label">Opposing Team</div>
-                    <div class="timer-value">{st.session_state.timers['z']}s</div>
-                </div>
-            </div>
-            <br>
         """, unsafe_allow_html=True)
         
         # Display the answer if the button is clicked
@@ -229,12 +243,11 @@ def quiz_mode():
             <div class="chosen-answer-text">
                 Answer: {question_data['answer']}
             </div>
-            </div>
             """, unsafe_allow_html=True)
-        else:
-            st.markdown("</div>", unsafe_allow_html=True) # close the chosen-question-card div
         
-        # Buttons to show answer and return to the board
+        st.markdown("</div></div>", unsafe_allow_html=True) # close the inner and outer divs
+        
+        # Buttons to show answer and return to the board. These are placed below the container.
         answer_col, back_col = st.columns(2)
         with answer_col:
             if st.button("Show Answer", use_container_width=True):
@@ -263,6 +276,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
