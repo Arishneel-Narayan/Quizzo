@@ -1,6 +1,7 @@
 # quiz_app.py
 import streamlit as st
 import random
+import time
 
 # Use st.session_state to manage the app's state across user interactions.
 # This is crucial for a stateless framework like Streamlit.
@@ -19,6 +20,12 @@ if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
 if 'timers' not in st.session_state:
     st.session_state.timers = {'x': 60, 'y': 90, 'z': 30}
+if 'timer_running' not in st.session_state:
+    st.session_state.timer_running = False
+if 'timer_value' not in st.session_state:
+    st.session_state.timer_value = 0
+if 'timer_start_time' not in st.session_state:
+    st.session_state.timer_start_time = None
 
 # --- CSS for styling the cards and transitions ---
 st.markdown("""
@@ -208,6 +215,10 @@ def quiz_mode():
                     if st.button(f"{i+1}", key=f"question_btn_{i}", use_container_width=True):
                         st.session_state.current_question_index = i
                         st.session_state.show_answer = False
+                        # Reset timer state when a new question is selected
+                        st.session_state.timer_running = False
+                        st.session_state.timer_value = 0
+                        st.session_state.timer_start_time = None
                         st.rerun()
                 else:
                     # Display a disabled button or a placeholder for used questions
@@ -221,22 +232,30 @@ def quiz_mode():
         <div class="chosen-question-container">
             <div class="chosen-question-card">
                 <div class="chosen-question-text">{question_data['question']}</div>
-                <div class="timers-container">
-                    <div class="timer-card">
-                        <div class="timer-label">First Person</div>
-                        <div class="timer-value">{st.session_state.timers['x']}s</div>
-                    </div>
-                    <div class="timer-card">
-                        <div class="timer-label">Team</div>
-                        <div class="timer-value">{st.session_state.timers['y']}s</div>
-                    </div>
-                    <div class="timer-card">
-                        <div class="timer-label">Opposing Team</div>
-                        <div class="timer-value">{st.session_state.timers['z']}s</div>
-                    </div>
-                </div>
         """, unsafe_allow_html=True)
         
+        # Create a placeholder for the timer to be updated in place
+        timer_placeholder = st.empty()
+
+        # Display the countdown timer if it's running
+        if st.session_state.timer_running:
+            # Calculate the time remaining
+            elapsed_time = time.time() - st.session_state.timer_start_time
+            remaining_time = st.session_state.timer_value - int(elapsed_time)
+            
+            if remaining_time > 0:
+                timer_placeholder.metric(label="Time Remaining", value=f"{remaining_time}s")
+                # Rerun the script every second to update the timer display
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.session_state.timer_running = False
+                timer_placeholder.metric(label="Time Remaining", value="Time's Up!")
+                st.warning("Time's Up!")
+        else:
+            # Display the initial timer value when the timer is not running
+            timer_placeholder.metric(label="Time Remaining", value=f"{st.session_state.timers['x']}s")
+
         # Display the answer if the button is clicked
         if st.session_state.show_answer:
             st.markdown(f"""
@@ -247,17 +266,41 @@ def quiz_mode():
         
         st.markdown("</div></div>", unsafe_allow_html=True) # close the inner and outer divs
         
-        # Buttons to show answer and return to the board. These are placed below the container.
-        answer_col, back_col = st.columns(2)
-        with answer_col:
+        # Buttons to start the timer and show the answer
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            if st.button("Start First Person Timer", use_container_width=True, disabled=st.session_state.timer_running):
+                st.session_state.timer_running = True
+                st.session_state.timer_value = st.session_state.timers['x']
+                st.session_state.timer_start_time = time.time()
+                st.rerun()
+        with col2:
+            if st.button("Start Team Timer", use_container_width=True, disabled=st.session_state.timer_running):
+                st.session_state.timer_running = True
+                st.session_state.timer_value = st.session_state.timers['y']
+                st.session_state.timer_start_time = time.time()
+                st.rerun()
+        with col3:
+            if st.button("Start Opposing Timer", use_container_width=True, disabled=st.session_state.timer_running):
+                st.session_state.timer_running = True
+                st.session_state.timer_value = st.session_state.timers['z']
+                st.session_state.timer_start_time = time.time()
+                st.rerun()
+        with col4:
             if st.button("Show Answer", use_container_width=True):
                 st.session_state.show_answer = True
+                # Stop timer when answer is shown
+                st.session_state.timer_running = False
                 st.rerun()
-        with back_col:
+        with col5:
             if st.button("Back to Board", use_container_width=True):
                 # Remove the current question from the available list
                 st.session_state.available_questions.remove(q_idx)
                 st.session_state.current_question_index = None
+                # Reset timer state
+                st.session_state.timer_running = False
+                st.session_state.timer_value = 0
+                st.session_state.timer_start_time = None
                 st.rerun()
     
     # Button to go back to quiz master mode
@@ -265,6 +308,9 @@ def quiz_mode():
         st.session_state.mode = 'quiz_master'
         st.session_state.questions = []
         st.session_state.num_questions = 18
+        st.session_state.timer_running = False
+        st.session_state.timer_value = 0
+        st.session_state.timer_start_time = None
         st.rerun()
 
 # --- Main App Logic ---
