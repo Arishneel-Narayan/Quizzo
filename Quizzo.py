@@ -158,7 +158,7 @@ st.markdown("""
 
 # --- Quiz Master Mode ---
 def quiz_master_mode():
-    st.title("👨‍🏫 Quiz Master Mode")
+    st.title("Quizzo 👨‍🏫 Quiz Master Mode")
     st.image("https://placehold.co/800x200/5A4FF5/ffffff?text=Quiz+Master+Setup", use_column_width=True)
     st.markdown("Enter your questions and answers below to prepare the quiz.")
     
@@ -212,7 +212,7 @@ def quiz_master_mode():
 def quiz_mode():
     if st.session_state.current_question_index is None:
         # Display the grid of numbers if no question is selected
-        st.title("🎲 The Quiz Board")
+        st.title("Quizzo 🎲 The Quiz Board")
         st.image("https://placehold.co/800x200/6C80FF/ffffff?text=Choose+a+Question", use_column_width=True)
         st.markdown("Choose a question number to begin.")
         
