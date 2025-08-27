@@ -9,14 +9,38 @@ from firebase_admin import credentials, firestore
 
 # Global variables provided by the Canvas environment for Firestore
 appId = os.environ.get('__app_id', 'default-app-id')
-firebaseConfig = json.loads(os.environ.get('__firebase_config', '{}'))
+# Safely load firebaseConfig, handling potential JSON parsing errors
+try:
+    firebaseConfig = json.loads('''{
+  "type": "service_account",
+  "project_id": "quizzo-70700",
+  "private_key_id": "8fb942f2381237f8fc433dd676c8317badde3a51",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCL322zOY55d+Nv\nt2+UeqyfsPUoSsgjbGqe4zla19Ii01CL6pZKPi9NnRmvH8Qw+PhMEdhzVTw2zB8O\nTpsb90joc7p6ZA06BM8SLpWfBrgIrm1Jl1PYHHa2PMzHNUgBiB1wrjGr5RbIDFni\ne2XtD6qu+yEt6VP72gELd+/kipm3aodj09lweVMlnUJk0Q+08aT2qmT9qzpcSwE2\nBR2q8WVMMFSS9W9LdSY+TpPqOVUzozfR6xdShm0PSRGH3IHMEThYTqCbO3rJAhpe\nOJSW2U5DJIv8wEbAm7ssNYscSgA4bA/ciGIGqclHvRBqp8uIu4yoxzIJe3tVKgxF\nRXCwPzntAgMBAAECggEAAgLAYXHardPp3Q3A8H3MMQ6iT/D4fOHgrUo8EdevdtSd\nBdt2S6J/kLeXDTydBH8JgE9+aG9B5mK4u+sBdEL84c5p1hR/yC1vLBss/GqQ9nQ0\nKsc6Wq7Y2gk1ofrL+bieNXd6Ndhaa+DWyyv3N/fdjtlGqXuP3NzeyHP9Ecbrxzh4\nCOfkF2NLxuVEIjJPYrvdEAEKA4FUScS53dSV7Wdxuu6XbgOl+JjysjgskyaG9q92\nxPeLW94fuma6t9CnWsRpk2FEpEQWs/hzDIpmslyVlafwOoEfNOV0DQTYLIHQc9C5\nqWevMlHS10mYiGg4Lujdtz8ETr0exGHbvgAzw2eftQKBgQDEDIDeFb+qlwYJsjDb\nvDhOn2hsr6ILO3Hrt+j0BbPlx50oD46uYxzhzxR0okXs+2n+u8XYuu3WxXtoMoKS\nfezJvxKc5Fj4Oj3LxEWWhX6mLy2OSUZEOmx3lqmPL9VlZtV9pdrcSZjgTUm+vYwE\n8EoRNZJnXbk/Tza70746cawzNwKBgQC2pTwZQ0l/altgBPS3cFtaLlRiISfHnDH9\nZOrnkmn0HY0V+QZs3bjl2jotgCEMqVuAihAgeOzlZQdaUIBCzKDiGj1eBKLIAjJQ\nk7gO6ITiCym3fNXrYx5EGwoPJOsZeNz4xZ4DLgDkzSeUkSEMwoYIw3kan9cXNzj4\nzCJG8zaV+wKBgG0Iyy85B1U4E1qXKQc8olBP5gL0l3oJwK0pprz44vm70BL0vBUO\n+IQ56JWJnrxTg7rx8fI83IRjZuQnm2kf8e6ufwqVEUpVEgNfEJjLfAmvGXYWGKdf\nmu3T9E+3ecagr8Hm2VdE82pkccxMnTAt9/OkSN2GSb4FL1q9RAI7MFt3AoGAYozx\nyqfV5pxaxYqnCLvlbtmEypYdQsVy68kiPuVvqjqvv+VopCFW/R8tOSDW5GAVcVwN\nq5fUK0rCFudM7b5AKQADkNFrjAQzZeru64xm9xkS32DKhIIs+I6mdNl0yX+/q7Pl\nuM1/yfUwoCdW7+2eKOhgVg9dHbe8U/LBpArjrzUCgYB4FcHAcy+3yBKTSkFi9WAC\nV1h0hwFqkcN8pU1Yjxf4L5xJCgEbu+xfTH+keT0g0fPVRITCQqzJUKge9BqcTlD/\neFD1XJV6cCmAyFlSlXcmclKPo0gmWXOiKvoTLCEGuoVz5N1bqf/tOZPw/B7zxD66\nZ2SC/V+hcIIbD+JoPnAoEQ==\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@quizzo-70700.iam.gserviceaccount.com",
+  "client_id": "107533123067507227885",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40quizzo-70700.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}'''
+    )
+except json.JSONDecodeError:
+    firebaseConfig = {}
+
 initialAuthToken = os.environ.get('__initial_auth_token', None)
 
 # Initialize Firebase if it hasn't been already
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate(firebaseConfig)
-        firebase_admin.initialize_app(cred)
+        # Before initializing, check if the credentials contain the required type field.
+        if "type" not in firebaseConfig or firebaseConfig["type"] != "service_account":
+            st.error("Error: Invalid Firebase credentials. The 'type' field is missing or incorrect.")
+            # Do not proceed with initialization to avoid the original error
+            # This is a more user-friendly error message
+        else:
+            cred = credentials.Certificate(firebaseConfig)
+            firebase_admin.initialize_app(cred)
     except Exception as e:
         st.error(f"Error initializing Firebase: {e}")
 
