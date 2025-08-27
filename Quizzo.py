@@ -2,12 +2,12 @@
 import streamlit as st
 import random
 import time
+import json
+import os
 
 # Use st.session_state to manage the app's state across user interactions.
-# This is crucial for a stateless framework like Streamlit.
-# Initialize session state variables if they don't already exist.
 if 'mode' not in st.session_state:
-    st.session_state.mode = 'quiz_master' # Start in the quiz master mode
+    st.session_state.mode = 'quiz_master'
 if 'questions' not in st.session_state:
     st.session_state.questions = []
 if 'num_questions' not in st.session_state:
@@ -27,35 +27,31 @@ if 'timer_value' not in st.session_state:
 if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
 if 'timer_stage' not in st.session_state:
-    st.session_state.timer_stage = 'off' # 'off', 'first_person', 'team', 'opposing_team'
-if 'selected_quiz' not in st.session_state:
-    st.session_state.selected_quiz = "Create New Quiz"
+    st.session_state.timer_stage = 'off'
+if 'selected_quiz_name' not in st.session_state:
+    st.session_state.selected_quiz_name = "Create New Quiz"
 
-# --- Quiz Library Data ---
-# This dictionary simulates a quiz library. In a real-world app, this data
-# would be loaded from a database or a file.
-quiz_library = {
-    "General Trivia": [
-        {"question": "What is the capital of France?", "answer": "Paris"},
-        {"question": "What is the largest planet in our solar system?", "answer": "Jupiter"},
-        {"question": "Which animal is known as the 'King of the Jungle'?", "answer": "Lion"},
-        {"question": "How many continents are there?", "answer": "Seven"},
-        {"question": "What is the chemical symbol for gold?", "answer": "Au"},
-        {"question": "Who painted the Mona Lisa?", "answer": "Leonardo da Vinci"},
-        {"question": "What is the freezing point of water in Celsius?", "answer": "0°C"},
-        {"question": "What is the longest river in the world?", "answer": "The Nile River"},
-    ],
-    "Science Quiz": [
-        {"question": "What force pulls objects toward the center of the Earth?", "answer": "Gravity"},
-        {"question": "What is the powerhouse of the cell?", "answer": "Mitochondria"},
-        {"question": "What gas do plants absorb from the atmosphere?", "answer": "Carbon dioxide"},
-        {"question": "Which planet is known as the Red Planet?", "answer": "Mars"},
-        {"question": "What is the chemical formula for water?", "answer": "H₂O"},
-    ],
-}
+# --- File-based Quiz Library Functions ---
+QUIZ_FILE = "quizzes.json"
 
+def load_quizzes():
+    """Loads quiz data from the JSON file."""
+    if os.path.exists(QUIZ_FILE):
+        try:
+            with open(QUIZ_FILE, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {}
+    return {}
 
-# --- CSS for styling the cards, transitions, and background ---
+def save_quiz(quiz_name, quiz_data):
+    """Saves a new quiz or updates an existing one to the JSON file."""
+    all_quizzes = load_quizzes()
+    all_quizzes[quiz_name] = quiz_data
+    with open(QUIZ_FILE, 'w') as f:
+        json.dump(all_quizzes, f, indent=4)
+
+# --- CSS for styling ---
 st.markdown("""
 <style>
     /* Use Inter font as per best practices */
@@ -197,27 +193,34 @@ def quiz_master_mode():
     st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quiz+Master+Setup", use_column_width=True)
     st.markdown("Select a pre-made quiz or create a new one below.")
     
-    # Dropdown to select a quiz from the library or create a new one
-    quiz_options = ["Create New Quiz"] + list(quiz_library.keys())
+    # Load available quizzes from file
+    all_quizzes = load_quizzes()
+    quiz_options = ["Create New Quiz"] + list(all_quizzes.keys())
+    
     selected_option = st.selectbox(
         "Choose a quiz from the library:", 
         options=quiz_options,
         key="quiz_selector"
     )
-
-    # If the user selects a new quiz, update the session state
-    if selected_option != st.session_state.selected_quiz:
-        st.session_state.selected_quiz = selected_option
+    
+    # Handle quiz selection change
+    if selected_option != st.session_state.selected_quiz_name:
+        st.session_state.selected_quiz_name = selected_option
         if selected_option != "Create New Quiz":
-            st.session_state.questions = quiz_library[selected_option]
-            st.session_state.num_questions = len(st.session_state.questions)
+            quiz_data = all_quizzes[selected_option]
+            st.session_state.questions = quiz_data.get('questions', [])
+            st.session_state.num_questions = quiz_data.get('num_questions', 18)
+            st.session_state.timers = quiz_data.get('timers', {'x': 60, 'y': 90, 'z': 30})
         else:
             st.session_state.questions = []
             st.session_state.num_questions = 18
+            st.session_state.timers = {'x': 60, 'y': 90, 'z': 30}
         st.experimental_rerun()
 
     # Form for quiz setup
     with st.form(key='quiz_setup_form'):
+        quiz_name_input = st.text_input("Quiz Name", value=st.session_state.selected_quiz_name if st.session_state.selected_quiz_name != "Create New Quiz" else "")
+
         st.session_state.num_questions = st.number_input(
             'Number of Questions', 
             min_value=1, 
@@ -241,30 +244,47 @@ def quiz_master_mode():
         st.subheader("Questions and Answers")
 
         # The loop dynamically generates the input fields based on the number set above.
+        current_questions = st.session_state.questions
+        if len(current_questions) > st.session_state.num_questions:
+            st.session_state.questions = current_questions[:st.session_state.num_questions]
+        
         for i in range(st.session_state.num_questions):
-            # Pre-fill with data from the library if a quiz was selected
-            q_text = st.session_state.questions[i]['question'] if len(st.session_state.questions) > i else ''
-            a_text = st.session_state.questions[i]['answer'] if len(st.session_state.questions) > i else ''
+            # Ensure the list is long enough
+            if len(st.session_state.questions) <= i:
+                st.session_state.questions.append({'question': '', 'answer': ''})
+
+            q_text = st.session_state.questions[i]['question']
+            a_text = st.session_state.questions[i]['answer']
 
             st.markdown(f"**Question {i+1}**")
             q = st.text_area(f"Enter Question {i+1}", key=f"q_{i}", value=q_text, height=50)
             a = st.text_input(f"Enter Answer {i+1}", key=f"a_{i}", value=a_text)
             
-            # Store the data in a temporary dictionary for submission
-            if len(st.session_state.questions) <= i:
-                st.session_state.questions.append({'question': '', 'answer': ''})
             st.session_state.questions[i]['question'] = q
             st.session_state.questions[i]['answer'] = a
 
-        # Submit button for the form
-        if st.form_submit_button("Start Quiz!"):
-            # Check if all fields are filled
-            if all(q['question'] and q['answer'] for q in st.session_state.questions[:st.session_state.num_questions]):
-                st.session_state.mode = 'quiz'
-                st.session_state.available_questions = list(range(st.session_state.num_questions))
-                st.rerun()
-            else:
-                st.warning("Please fill in all questions and answers.")
+        col_save, col_start = st.columns(2)
+        with col_save:
+            if st.form_submit_button("Save Quiz"):
+                if quiz_name_input:
+                    quiz_data = {
+                        "questions": st.session_state.questions,
+                        "num_questions": st.session_state.num_questions,
+                        "timers": st.session_state.timers
+                    }
+                    save_quiz(quiz_name_input, quiz_data)
+                    st.success(f"Quiz '{quiz_name_input}' saved successfully!")
+                else:
+                    st.warning("Please enter a name for your quiz.")
+        
+        with col_start:
+            if st.form_submit_button("Start Quiz!"):
+                if all(q['question'] and q['answer'] for q in st.session_state.questions[:st.session_state.num_questions]):
+                    st.session_state.mode = 'quiz'
+                    st.session_state.available_questions = list(range(st.session_state.num_questions))
+                    st.rerun()
+                else:
+                    st.warning("Please fill in all questions and answers.")
 
 # --- Quiz Mode ---
 def quiz_mode():
@@ -405,7 +425,7 @@ def quiz_mode():
         st.session_state.timer_value = 0
         st.session_state.timer_start_time = None
         st.session_state.timer_stage = 'off'
-        st.session_state.selected_quiz = "Create New Quiz"
+        st.session_state.selected_quiz_name = "Create New Quiz"
         st.rerun()
 
 # --- Main App Logic ---
