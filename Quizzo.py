@@ -40,16 +40,7 @@ st.markdown("""
 
     /* Add a subtle background image to the app */
     body {
-        background-image: url("https://placehold.co/1920x1080/F5F5F5/4B5563/png?text=Quiz+Background");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }
-
-    /* Make the content area transparent to see the background */
-    [data-testid="stAppViewContainer"] {
-        background-color: rgba(255, 255, 255, 0);
+        background-color: #f0f2f6;
     }
     
     /* Style the main app container for better centering and background */
@@ -63,7 +54,7 @@ st.markdown("""
 
     /* Styles for the question cards */
     .question-card {
-        background-color: #f0f2f6; /* Light gray background */
+        background-color: #ffffff; /* Light gray background */
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 20px;
@@ -168,6 +159,7 @@ st.markdown("""
 # --- Quiz Master Mode ---
 def quiz_master_mode():
     st.title("👨‍🏫 Quiz Master Mode")
+    st.image("https://placehold.co/800x200/5A4FF5/ffffff?text=Quiz+Master+Setup", use_column_width=True)
     st.markdown("Enter your questions and answers below to prepare the quiz.")
     
     # Form for quiz setup
@@ -221,8 +213,9 @@ def quiz_mode():
     if st.session_state.current_question_index is None:
         # Display the grid of numbers if no question is selected
         st.title("🎲 The Quiz Board")
+        st.image("https://placehold.co/800x200/6C80FF/ffffff?text=Choose+a+Question", use_column_width=True)
         st.markdown("Choose a question number to begin.")
-
+        
         # Display question numbers in a grid
         cols = st.columns(6) # Display 6 cards per row
         
