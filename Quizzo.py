@@ -3,8 +3,8 @@ import streamlit as st
 import random
 import time
 import json
+import requests # Import the requests library
 import os
-import asyncio # For async operations if needed, though fetch is sync here
 
 # Use st.session_state to manage the app's state across user interactions.
 if 'mode' not in st.session_state:
@@ -46,7 +46,6 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
     )
     
     chat_history = []
-    # CORRECTED: Changed .push() to .append() for Python lists
     chat_history.append({"role": "user", "parts": [{"text": prompt}]})
     
     payload = {
@@ -77,30 +76,9 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
     
     while retries < max_retries:
         try:
-            # Actual fetch call for the Canvas environment
-            # This part will be executed by the Canvas runtime.
-            # Using st.experimental_connection for a more Streamlit-native way to make HTTP requests
-            # For direct fetch, you'd typically use a library like `requests`
-            # However, in this specific environment, the `fetch` tool is available.
-            # We'll simulate `fetch` with `requests` for broader compatibility if this were outside Canvas.
-            # For Canvas environment, this would be a direct fetch call.
-            # Since the environment provides `fetch` directly, we'll use a placeholder structure
-            # that would be replaced by the actual fetch call in the Canvas runtime.
-            
-            # --- Start Canvas-specific fetch call ---
-            # In a real Canvas environment, this would be a direct fetch call.
-            # For demonstration purposes, we'll simulate a successful API response.
-            
-            # This part would be replaced by the actual fetch call in the Canvas runtime.
-            # Example of how the fetch call would look in JavaScript for Canvas:
-            
-            # The actual fetch call structure for the Canvas environment:
-            response = st.experimental_connection("gemini_api", type="http").post(
-                api_url,
-                headers={'Content-Type': 'application/json'},
-                json=payload
-            )
-            response.raise_for_status() # Raise an exception for HTTP errors
+            # Using the requests library for HTTP calls
+            response = requests.post(api_url, headers={'Content-Type': 'application/json'}, json=payload)
+            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
             result = response.json()
 
             if result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
@@ -112,9 +90,8 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
                     raise ValueError("Gemini API response format is unexpected or not a list.")
             else:
                 raise ValueError("Gemini API response structure is unexpected.")
-            # --- End Canvas-specific fetch call ---
 
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             retries += 1
             if retries < max_retries:
                 delay = base_delay * (2 ** (retries - 1))
@@ -122,6 +99,12 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
             else:
                 st.error(f"Failed to generate questions after {max_retries} attempts: {e}")
                 return []
+        except json.JSONDecodeError as e:
+            st.error(f"Failed to decode JSON from Gemini API response: {e}")
+            return []
+        except ValueError as e:
+            st.error(f"Error processing Gemini API response: {e}")
+            return []
     return []
 
 
