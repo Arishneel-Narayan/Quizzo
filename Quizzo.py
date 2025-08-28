@@ -4,32 +4,7 @@ import random
 import time
 import json
 import os
-import firebase_admin
-from firebase_admin import credentials, firestore
-
-# Check if Firebase is already initialized
-if not firebase_admin._apps:
-    try:
-        # Load credentials from Streamlit secrets
-        firebase_secrets = st.secrets["firebase"]
-        
-        # Initialize Firebase Admin SDK
-        cred = credentials.Certificate(firebase_secrets)
-        firebase_admin.initialize_app(cred)
-        
-        # Initialize Firestore client and collection reference after successful init
-        db = firestore.client()
-        appId = st.secrets["app_id"]
-        quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
-    except Exception as e:
-        st.error(f"Error initializing Firebase: {e}")
-        st.stop()
-else:
-    # If the app is already initialized, just get the client
-    db = firestore.client()
-    appId = st.secrets["app_id"]
-    quiz_collection_ref = db.collection('artifacts').document(appId).collection('quizzes')
-
+import asyncio # For async operations if needed, though fetch is sync here
 
 # Use st.session_state to manage the app's state across user interactions.
 if 'mode' not in st.session_state:
@@ -54,34 +29,100 @@ if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
 if 'timer_stage' not in st.session_state:
     st.session_state.timer_stage = 'off'
-if 'selected_quiz_name' not in st.session_state:
-    st.session_state.selected_quiz_name = "Create New Quiz"
-if 'quizzes_data' not in st.session_state:
-    st.session_state.quizzes_data = {}
+if 'quiz_topic' not in st.session_state:
+    st.session_state.quiz_topic = ""
+if 'quiz_difficulty' not in st.session_state:
+    st.session_state.quiz_difficulty = "Medium"
 
+# --- Gemini API Integration ---
+# This function calls the Gemini API to generate quiz questions.
+# It uses exponential backoff for retries to handle potential API throttling.
+def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
+    prompt = (
+        f"Generate {num_questions} quiz questions and answers on the topic of '{topic}' "
+        f"with '{difficulty}' difficulty. Provide the output as a JSON array, "
+        f"where each object has a 'question' and 'answer' field. "
+        "Ensure the JSON is perfectly formatted and contains only the array."
+    )
+    
+    chat_history = []
+    chat_history.push({"role": "user", "parts": [{"text": prompt}]})
+    
+    payload = {
+        "contents": chat_history,
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "question": {"type": "STRING"},
+                        "answer": {"type": "STRING"}
+                    },
+                    "propertyOrdering": ["question", "answer"]
+                }
+            }
+        }
+    }
+    
+    # Retrieve API key from Streamlit secrets
+    api_key = st.secrets["GEMINI_API_KEY"] 
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    
+    retries = 0
+    max_retries = 5
+    base_delay = 1 # seconds
+    
+    while retries < max_retries:
+        try:
+            # Actual fetch call for the Canvas environment
+            # This part will be executed by the Canvas runtime.
+            # Using st.experimental_connection for a more Streamlit-native way to make HTTP requests
+            # For direct fetch, you'd typically use a library like `requests`
+            # However, in this specific environment, the `fetch` tool is available.
+            # We'll simulate `fetch` with `requests` for broader compatibility if this were outside Canvas.
+            # For Canvas environment, this would be a direct fetch call.
+            # Since the environment provides `fetch` directly, we'll use a placeholder structure
+            # that would be replaced by the actual fetch call in the Canvas runtime.
+            
+            # --- Start Canvas-specific fetch call ---
+            # In a real Canvas environment, this would be a direct fetch call.
+            # For demonstration purposes, we'll simulate a successful API response.
+            
+            # This part would be replaced by the actual fetch call in the Canvas runtime.
+            # Example of how the fetch call would look in JavaScript for Canvas:
+            
+            # The actual fetch call structure for the Canvas environment:
+            response = st.experimental_connection("gemini_api", type="http").post(
+                api_url,
+                headers={'Content-Type': 'application/json'},
+                json=payload
+            )
+            response.raise_for_status() # Raise an exception for HTTP errors
+            result = response.json()
 
-# --- Quiz Library Functions ---
-@st.cache_data(show_spinner="Loading quizzes...")
-def load_quizzes():
-    """Loads quiz data from Firestore."""
-    quizzes = {}
-    docs = quiz_collection_ref.stream()
-    for doc in docs:
-        quizzes[doc.id] = doc.to_dict()
-    return quizzes
+            if result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
+                json_string = result["candidates"][0]["content"]["parts"][0]["text"]
+                generated_questions = json.loads(json_string)
+                if generated_questions and isinstance(generated_questions, list):
+                    return generated_questions
+                else:
+                    raise ValueError("Gemini API response format is unexpected or not a list.")
+            else:
+                raise ValueError("Gemini API response structure is unexpected.")
+            # --- End Canvas-specific fetch call ---
 
-def save_quiz(quiz_name, quiz_data):
-    """Saves a new quiz or updates an existing one to Firestore."""
-    try:
-        quiz_collection_ref.document(quiz_name).set(quiz_data)
-        st.session_state.quizzes_data = load_quizzes() # Refresh cache
-        st.success(f"Quiz '{quiz_name}' saved to the cloud successfully!")
-    except Exception as e:
-        st.error(f"Failed to save quiz to Firestore: {e}")
+        except Exception as e:
+            retries += 1
+            if retries < max_retries:
+                delay = base_delay * (2 ** (retries - 1))
+                time.sleep(delay)
+            else:
+                st.error(f"Failed to generate questions after {max_retries} attempts: {e}")
+                return []
+    return []
 
-# Load quizzes on app start
-if not st.session_state.quizzes_data:
-    st.session_state.quizzes_data = load_quizzes()
 
 # --- CSS for styling ---
 st.markdown("""
@@ -223,40 +264,20 @@ st.markdown("""
 def quiz_master_mode():
     st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quizzo+Quiz+Master", use_container_width=True)
     st.markdown("<h2 style='text-align: center;'>Welcome, Quiz Master!</h2>", unsafe_allow_html=True)
-    st.markdown("Select a pre-made quiz or create a new one below.")
+    st.markdown("Enter quiz details and generate questions below.")
     
-    # Load available quizzes from Firestore
-    all_quizzes = st.session_state.quizzes_data
-    quiz_options = ["Create New Quiz"] + list(all_quizzes.keys())
-    
-    selected_option = st.selectbox(
-        "Choose a quiz from the library:", 
-        options=quiz_options,
-        key="quiz_selector"
-    )
-    
-    # Handle quiz selection change
-    if selected_option != st.session_state.selected_quiz_name:
-        st.session_state.selected_quiz_name = selected_option
-        if selected_option != "Create New Quiz":
-            quiz_data = all_quizzes[selected_option]
-            st.session_state.questions = quiz_data.get('questions', [])
-            st.session_state.num_questions = quiz_data.get('num_questions', 18)
-            st.session_state.timers = quiz_data.get('timers', {'x': 60, 'y': 90, 'z': 30})
-        else:
-            st.session_state.questions = []
-            st.session_state.num_questions = 18
-            st.session_state.timers = {'x': 60, 'y': 90, 'z': 30}
-        st.experimental_rerun()
-
     # Form for quiz setup
     with st.form(key='quiz_setup_form'):
-        quiz_name_input = st.text_input("Quiz Name", value=st.session_state.selected_quiz_name if st.session_state.selected_quiz_name != "Create New Quiz" else "")
-
+        st.session_state.quiz_topic = st.text_input("Quiz Topic", value=st.session_state.quiz_topic)
+        st.session_state.quiz_difficulty = st.selectbox(
+            "Difficulty", 
+            options=["Easy", "Medium", "Hard"], 
+            index=["Easy", "Medium", "Hard"].index(st.session_state.quiz_difficulty)
+        )
         st.session_state.num_questions = st.number_input(
-            'Number of Questions', 
+            'Number of Questions to Generate', 
             min_value=1, 
-            max_value=100, 
+            max_value=20, # Limiting for faster generation and display
             value=st.session_state.num_questions, 
             step=1
         )
@@ -273,50 +294,26 @@ def quiz_master_mode():
             st.session_state.timers['z'] = st.number_input('Opposing Team Timer (Z)', value=st.session_state.timers['z'], min_value=1)
         
         st.markdown("---")
-        st.subheader("Questions and Answers")
-
-        # The loop dynamically generates the input fields based on the number set above.
-        current_questions = st.session_state.questions
-        if len(current_questions) > st.session_state.num_questions:
-            st.session_state.questions = current_questions[:st.session_state.num_questions]
         
-        for i in range(st.session_state.num_questions):
-            # Ensure the list is long enough
-            if len(st.session_state.questions) <= i:
-                st.session_state.questions.append({'question': '', 'answer': ''})
-
-            q_text = st.session_state.questions[i]['question']
-            a_text = st.session_state.questions[i]['answer']
-
-            st.markdown(f"**Question {i+1}**")
-            q = st.text_area(f"Enter Question {i+1}", key=f"q_{i}", value=q_text, height=50)
-            a = st.text_input(f"Enter Answer {i+1}", key=f"a_{i}", value=a_text)
-            
-            st.session_state.questions[i]['question'] = q
-            st.session_state.questions[i]['answer'] = a
-
-        col_save, col_start = st.columns(2)
-        with col_save:
-            if st.form_submit_button("Save Quiz"):
-                if quiz_name_input:
-                    quiz_data = {
-                        "questions": st.session_state.questions,
-                        "num_questions": st.session_state.num_questions,
-                        "timers": st.session_state.timers
-                    }
-                    save_quiz(quiz_name_input, quiz_data)
-                    st.experimental_rerun()
-                else:
-                    st.warning("Please enter a name for your quiz.")
-        
-        with col_start:
-            if st.form_submit_button("Start Quiz!"):
-                if all(q['question'] and q['answer'] for q in st.session_state.questions[:st.session_state.num_questions]):
+        if st.form_submit_button("Generate & Start Quiz!"):
+            if st.session_state.quiz_topic and st.session_state.num_questions > 0:
+                with st.spinner("Generating questions with Gemini AI... This might take a moment."):
+                    generated_questions = generate_quiz_questions_with_gemini(
+                        st.session_state.num_questions, 
+                        st.session_state.quiz_topic, 
+                        st.session_state.quiz_difficulty
+                    )
+                
+                if generated_questions:
+                    st.session_state.questions = generated_questions
+                    st.session_state.num_questions = len(generated_questions) # Update actual count
                     st.session_state.mode = 'quiz'
                     st.session_state.available_questions = list(range(st.session_state.num_questions))
                     st.rerun()
                 else:
-                    st.warning("Please fill in all questions and answers.")
+                    st.error("Could not generate questions. Please try again or adjust your prompt.")
+            else:
+                st.warning("Please enter a quiz topic and number of questions.")
 
 # --- Quiz Mode ---
 def quiz_mode():
@@ -458,7 +455,8 @@ def quiz_mode():
         st.session_state.timer_value = 0
         st.session_state.timer_start_time = None
         st.session_state.timer_stage = 'off'
-        st.session_state.selected_quiz_name = "Create New Quiz"
+        st.session_state.quiz_topic = "" # Reset topic
+        st.session_state.quiz_difficulty = "Medium" # Reset difficulty
         st.rerun()
 
 # --- Main App Logic ---
