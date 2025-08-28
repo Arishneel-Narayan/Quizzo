@@ -49,7 +49,7 @@ def initialize_session_state():
         'available_questions': [],
         'current_question_index': None,
         'show_answer': False,
-        'timers': {'x': 20, 'y': 15, 'z': 10}, # Default timer values
+        'timers': {'x': 20, 'y': 15, 'z': 10},
         'timer_running': False,
         'timer_value': 0,
         'timer_start_time': None,
@@ -59,7 +59,8 @@ def initialize_session_state():
         'team1_name': "Team A",
         'team2_name': "Team B",
         'scores': {"Team A": 0, "Team B": 0},
-        'excel_file': None
+        'excel_file': None,
+        'points_awarded': False # Tracks if points have been given for the current question
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -227,8 +228,10 @@ def quiz_mode():
                 if i in st.session_state.available_questions:
                     if st.button(f"{i+1}", key=f"q_btn_{i}", use_container_width=True):
                         st.session_state.current_question_index = i
-                        st.session_state.show_answer, st.session_state.sound_played = False, False
+                        st.session_state.show_answer = False
+                        st.session_state.sound_played = False
                         st.session_state.timer_stage = 'off'
+                        st.session_state.points_awarded = False
                         st.rerun()
                 else: st.button("✅", key=f"q_btn_{i}", disabled=True, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -266,21 +269,23 @@ def quiz_mode():
         if st.session_state.show_answer:
             st.markdown(f"<div class='chosen-answer-text'>Answer: {question_data['answer']}</div>", unsafe_allow_html=True)
 
-        # Scoring Buttons
+        # Scoring Logic and Buttons
+        def award_points(team_name, points):
+            st.session_state.scores[team_name] += points
+            st.session_state.show_answer = True
+            st.session_state.points_awarded = True
+            st.rerun()
+
         points_map = {'first_person': 3, 'team': 2, 'opposing_team': 1}
         points_to_award = points_map.get(st.session_state.timer_stage, 0)
-
-        def award_points_and_go_back(team_name, points):
-            st.session_state.scores[team_name] += points
-            st.session_state.available_questions.remove(q_idx)
-            st.session_state.current_question_index = None
-            st.rerun()
 
         if points_to_award > 0 and st.session_state.timer_running:
             st.markdown(f"**Award {points_to_award} Points To:**")
             score_col1, score_col2 = st.columns(2)
-            if score_col1.button(f"✅ {team1}", use_container_width=True): award_points_and_go_back(team1, points_to_award)
-            if score_col2.button(f"✅ {team2}", use_container_width=True): award_points_and_go_back(team2, points_to_award)
+            if score_col1.button(f"✅ {team1}", use_container_width=True, disabled=st.session_state.points_awarded):
+                award_points(team1, points_to_award)
+            if score_col2.button(f"✅ {team2}", use_container_width=True, disabled=st.session_state.points_awarded):
+                award_points(team2, points_to_award)
 
         # Control Buttons
         ctrl_cols = st.columns(4)
