@@ -46,7 +46,8 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
     )
     
     chat_history = []
-    chat_history.push({"role": "user", "parts": [{"text": prompt}]})
+    # CORRECTED: Changed .push() to .append() for Python lists
+    chat_history.append({"role": "user", "parts": [{"text": prompt}]})
     
     payload = {
         "contents": chat_history,
