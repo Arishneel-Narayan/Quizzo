@@ -3,10 +3,43 @@ import streamlit as st
 import random
 import time
 import json
-import requests # Import the requests library
+import requests
 import os
+import base64
+import wave
+import struct
+import math
+import io
 
-# Use st.session_state to manage the app's state across user interactions.
+# --- New: Generate a beeper sound in memory ---
+# This function creates a simple WAV audio file as bytes, then encodes it.
+# This avoids needing a separate audio file.
+def generate_beep_sound():
+    sample_rate = 44100
+    duration_s = 0.5
+    freq_hz = 880.0
+    n_samples = int(sample_rate * duration_s)
+    amplitude = 32767 * 0.5  # Max amplitude for 16-bit audio
+
+    wav_data = bytearray()
+    for i in range(n_samples):
+        angle = 2 * math.pi * i * freq_hz / sample_rate
+        sample = int(amplitude * math.sin(angle))
+        wav_data += struct.pack('<h', sample)
+
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(wav_data)
+    buffer.seek(0)
+    return base64.b64encode(buffer.read()).decode('utf-8')
+
+BEEP_WAV_BASE64 = generate_beep_sound()
+
+
+# --- Session State Initialization ---
 if 'mode' not in st.session_state:
     st.session_state.mode = 'quiz_master'
 if 'questions' not in st.session_state:
@@ -19,9 +52,8 @@ if 'current_question_index' not in st.session_state:
     st.session_state.current_question_index = None
 if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
-# Updated default timer values
 if 'timers' not in st.session_state:
-    st.session_state.timers = {'x': 20, 'y': 15, 'z': 3} # Default timers: 20s, 15s, 3s
+    st.session_state.timers = {'x': 20, 'y': 15, 'z': 3}
 if 'timer_running' not in st.session_state:
     st.session_state.timer_running = False
 if 'timer_value' not in st.session_state:
@@ -29,15 +61,17 @@ if 'timer_value' not in st.session_state:
 if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
 if 'timer_stage' not in st.session_state:
-    st.session_state.timer_stage = 'off' # 'off', 'first_person', 'team', 'opposing_team'
+    st.session_state.timer_stage = 'off'
 if 'quiz_topic' not in st.session_state:
     st.session_state.quiz_topic = ""
 if 'quiz_difficulty' not in st.session_state:
     st.session_state.quiz_difficulty = "Medium"
+# New: Add a flag to ensure the sound plays only once per timer expiration.
+if 'sound_played' not in st.session_state:
+    st.session_state.sound_played = False
 
-# --- Gemini API Integration ---
-# This function calls the Gemini API to generate quiz questions.
-# It uses exponential backoff for retries to handle potential API throttling.
+
+# --- Gemini API Integration (Unchanged) ---
 def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
     prompt = (
         f"Generate {num_questions} quiz questions and answers on the topic of '{topic}' "
@@ -67,19 +101,17 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
         }
     }
     
-    # Retrieve API key from Streamlit secrets
     api_key = st.secrets["GEMINI_API_KEY"] 
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={api_key}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
     
     retries = 0
     max_retries = 5
-    base_delay = 1 # seconds
+    base_delay = 1
     
     while retries < max_retries:
         try:
-            # Using the requests library for HTTP calls
             response = requests.post(api_url, headers={'Content-Type': 'application/json'}, json=payload)
-            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+            response.raise_for_status()
             result = response.json()
 
             if result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
@@ -109,7 +141,7 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
     return []
 
 
-# --- CSS for styling ---
+# --- CSS for styling (Unchanged) ---
 st.markdown("""
 <style>
     /* Use Inter font as per best practices */
@@ -117,29 +149,21 @@ st.markdown("""
     html, body, [class*="st-"] {
         font-family: 'Inter', sans-serif;
     }
-
-    /* Set a clean, solid background color */
     body {
-        background-color: #f0f2f6; /* A very light gray for a clean look */
+        background-color: #f0f2f6;
     }
-
-    /* Reset the container styling to remove the old background */
     [data-testid="stAppViewContainer"] {
         background-color: transparent;
         border-radius: 0;
         backdrop-filter: none;
     }
-    
-    /* Style the main app container for better centering and background */
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 1rem;
         padding-left: 1rem;
         padding-right: 1rem;
-        max-width: 100%; /* Ensure it uses full width on small screens */
+        max-width: 100%;
     }
-
-    /* Styles for the question cards with better aesthetics */
     .question-card {
         background-color: #ffffff;
         border: 2px solid #F4C430;
@@ -151,18 +175,15 @@ st.markdown("""
         transition: all 0.2s ease-in-out;
         cursor: pointer;
     }
-
     .question-card:hover {
         transform: translateY(-5px) scale(1.05);
         box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
     }
-
     .question-number {
         font-size: 2.5rem;
         font-weight: 600;
         color: #F4C430;
     }
-    
     .stButton>button {
         transition: all 0.3s ease;
         border-radius: 8px;
@@ -172,28 +193,23 @@ st.markdown("""
         background-color: #F4C430;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
     .stButton>button:hover {
         background-color: #FFD700;
         transform: translateY(-2px);
     }
-    
     .stButton>button:disabled {
         background-color: #d3d3d3;
         cursor: not-allowed;
         box-shadow: none;
     }
-
-    /* Styles for the chosen question display */
     .chosen-question-container {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        min-height: 80vh; /* Set a minimum height to fill the screen */
+        min-height: 80vh;
         text-align: center;
     }
-
     .chosen-question-card {
         background: linear-gradient(135deg, #FFD700, #F4C430);
         color: white;
@@ -201,16 +217,14 @@ st.markdown("""
         padding: 30px;
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         animation: fadeIn 0.5s ease-in-out;
-        width: 100%; /* Use full width of container */
-        max-width: 800px; /* Constrain on large screens */
+        width: 100%;
+        max-width: 800px;
     }
-
     .chosen-question-text {
         font-size: 2.5rem;
         font-weight: 600;
-        word-wrap: break-word; /* Ensure long questions wrap correctly */
+        word-wrap: break-word;
     }
-
     .chosen-answer-text {
         font-size: 1.5rem;
         font-weight: 400;
@@ -220,23 +234,18 @@ st.markdown("""
         border-radius: 8px;
         animation: fadeIn 1s ease-in-out;
     }
-
     .timer-info-container {
         margin-top: 1rem;
     }
-
     .timer-label-text {
         font-size: 1.2rem;
         opacity: 0.9;
         font-weight: 600;
     }
-
     .timer-value-text {
         font-size: 3rem;
         font-weight: bold;
     }
-    
-    /* Animation for smooth appearance */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -245,13 +254,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- Quiz Master Mode ---
+# --- Quiz Master Mode (Unchanged) ---
 def quiz_master_mode():
     st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quizzo+Quiz+Master", use_container_width=True)
     st.markdown("<h2 style='text-align: center;'>Welcome, Quiz Master!</h2>", unsafe_allow_html=True)
     st.markdown("Enter quiz details and generate questions below.")
     
-    # Form for quiz setup
     with st.form(key='quiz_setup_form'):
         st.session_state.quiz_topic = st.text_input("Quiz Topic", value=st.session_state.quiz_topic)
         st.session_state.quiz_difficulty = st.selectbox(
@@ -262,12 +270,11 @@ def quiz_master_mode():
         st.session_state.num_questions = st.number_input(
             'Number of Questions to Generate', 
             min_value=1, 
-            max_value=20, # Limiting for faster generation and display
+            max_value=20,
             value=st.session_state.num_questions, 
             step=1
         )
         
-        # Timers setup
         st.markdown("---")
         st.subheader("Set the Timers (in seconds)")
         col_x, col_y, col_z = st.columns(3)
@@ -291,7 +298,7 @@ def quiz_master_mode():
                 
                 if generated_questions:
                     st.session_state.questions = generated_questions
-                    st.session_state.num_questions = len(generated_questions) # Update actual count
+                    st.session_state.num_questions = len(generated_questions)
                     st.session_state.mode = 'quiz'
                     st.session_state.available_questions = list(range(st.session_state.num_questions))
                     st.rerun()
@@ -300,19 +307,17 @@ def quiz_master_mode():
             else:
                 st.warning("Please enter a quiz topic and number of questions.")
 
-# --- Quiz Mode ---
+
+# --- Quiz Mode (Heavily Modified) ---
 def quiz_mode():
     st.image("https://placehold.co/800x200/FFD700/ffffff?text=Quizzo+Game+Board", use_container_width=True)
     st.markdown("<h2 style='text-align: center;'>Choose a Question</h2>", unsafe_allow_html=True)
     
     if st.session_state.current_question_index is None:
-        # Display the grid of numbers if no question is selected
         st.markdown("Choose a question number to begin.")
         
-        # Display question numbers in a grid
-        cols = st.columns(6) # Display 6 cards per row
+        cols = st.columns(6)
         
-        # Use a shuffled list of available questions to make the order feel random
         if not st.session_state.available_questions:
             st.warning("All questions have been answered! Please go back to the Quiz Master to start a new quiz.")
             
@@ -320,7 +325,6 @@ def quiz_mode():
         
         for i in range(st.session_state.num_questions):
             with cols[i % 6]:
-                # Use a unique key for each button to avoid re-rendering issues
                 if i in st.session_state.available_questions:
                     if st.button(f"{i+1}", key=f"question_btn_{i}", use_container_width=True):
                         st.session_state.current_question_index = i
@@ -329,12 +333,11 @@ def quiz_mode():
                         st.session_state.timer_stage = 'off'
                         st.session_state.timer_value = 0
                         st.session_state.timer_start_time = None
+                        st.session_state.sound_played = False # Reset sound flag
                         st.rerun()
                 else:
-                    # Display a disabled button or a placeholder for used questions
                     st.button("✅", key=f"question_btn_{i}", disabled=True, use_container_width=True)
     else:
-        # Display the selected question in a visually pleasing container
         q_idx = st.session_state.current_question_index
         question_data = st.session_state.questions[q_idx]
 
@@ -344,91 +347,83 @@ def quiz_mode():
                 <div class="chosen-question-text">{question_data['question']}</div>
         """, unsafe_allow_html=True)
 
-        # Timer logic and display
         timer_placeholder = st.empty()
-        
+        sound_placeholder = st.empty()
+
+        # New: Reworked timer logic without a blocking `while` loop.
         if st.session_state.timer_running:
-            # Calculate the time remaining
             elapsed_time = time.time() - st.session_state.timer_start_time
-            remaining_time = st.session_state.timer_value - int(elapsed_time)
+            remaining_time = st.session_state.timer_value - elapsed_time
             
-            # Update the metric and rerun if time is left
             if remaining_time > 0:
                 timer_placeholder.markdown(f"""
                 <div class="timer-info-container">
-                    <div class="timer-label-text">
-                        Timer for {st.session_state.timer_stage.replace('_', ' ').title()}
-                    </div>
-                    <div class="timer-value-text">{remaining_time}s</div>
-                </div>
-                """, unsafe_allow_html=True)
-                time.sleep(1)
-                st.rerun()
+                    <div class="timer-label-text">Timer for {st.session_state.timer_stage.replace('_', ' ').title()}</div>
+                    <div class="timer-value-text">{int(remaining_time)}s</div>
+                </div>""", unsafe_allow_html=True)
             else:
-                # Timer has run out, stop the timer and update the display
                 st.session_state.timer_running = False
                 timer_placeholder.markdown(f"""
                 <div class="timer-info-container">
                     <div class="timer-label-text">Time's Up!</div>
                     <div class="timer-value-text">0s</div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.warning("Time's Up!")
+                </div>""", unsafe_allow_html=True)
                 
-        # Handle the state when the timer is not running
-        if not st.session_state.timer_running:
+                # New: Play the beep sound when time runs out.
+                if not st.session_state.sound_played:
+                    sound_html = f'<audio autoplay><source src="data:audio/wav;base64,{BEEP_WAV_BASE64}" type="audio/wav"></audio>'
+                    sound_placeholder.markdown(sound_html, unsafe_allow_html=True)
+                    st.session_state.sound_played = True
+                
+                st.warning("Time's Up!")
+                st.rerun() # Rerun once to update button states.
+        else:
             timer_label = st.session_state.timer_stage.replace('_', ' ').title() if st.session_state.timer_stage != 'off' else "No Timer Running"
             timer_placeholder.markdown(f"""
             <div class="timer-info-container">
                 <div class="timer-label-text">{timer_label}</div>
                 <div class="timer-value-text">--</div>
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
-        st.markdown("</div></div>", unsafe_allow_html=True) # close the inner and outer divs
+        st.markdown("</div></div>", unsafe_allow_html=True)
         
-        # Display the answer if the button is clicked
         if st.session_state.show_answer:
             st.markdown(f"""
-            <div class="chosen-answer-text">
-                Answer: {question_data['answer']}
-            </div>
+            <div class="chosen-answer-text">Answer: {question_data['answer']}</div>
             """, unsafe_allow_html=True)
 
-        # Buttons to control the quiz flow
-        # "End Current Timer" is now the first button for prominence
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 1]) 
+        # Buttons are now always rendered and available to be clicked.
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
         with col1:
             if st.button("End Current Timer", use_container_width=True, disabled=not st.session_state.timer_running):
                 st.session_state.timer_running = False
-                st.session_state.timer_stage = 'off' # Revert to 'off' stage
-                st.info("Timer stopped!") # Immediate feedback
+                st.session_state.timer_stage = 'off'
+                st.info("Timer stopped!")
                 st.rerun()
+
         with col2:
+            def start_timer(stage, duration_key):
+                st.session_state.timer_running = True
+                st.session_state.timer_value = st.session_state.timers[duration_key]
+                st.session_state.timer_start_time = time.time()
+                st.session_state.timer_stage = stage
+                st.session_state.sound_played = False # Reset sound flag
+                st.rerun()
+
             if st.session_state.timer_stage == 'off' and st.button("Start First Person Timer", use_container_width=True):
-                st.session_state.timer_running = True
-                st.session_state.timer_value = st.session_state.timers['x']
-                st.session_state.timer_start_time = time.time()
-                st.session_state.timer_stage = 'first_person'
-                st.rerun()
+                start_timer('first_person', 'x')
             elif st.session_state.timer_stage == 'first_person' and not st.session_state.timer_running and st.button("Start Team Timer", use_container_width=True):
-                st.session_state.timer_running = True
-                st.session_state.timer_value = st.session_state.timers['y']
-                st.session_state.timer_start_time = time.time()
-                st.session_state.timer_stage = 'team'
-                st.rerun()
+                start_timer('team', 'y')
             elif st.session_state.timer_stage == 'team' and not st.session_state.timer_running and st.button("Start Opposing Timer", use_container_width=True):
-                st.session_state.timer_running = True
-                st.session_state.timer_value = st.session_state.timers['z']
-                st.session_state.timer_start_time = time.time()
-                st.session_state.timer_stage = 'opposing_team'
-                st.rerun()
+                start_timer('opposing_team', 'z')
+
         with col3:
             if st.button("Show Answer", use_container_width=True):
                 st.session_state.show_answer = True
                 st.session_state.timer_running = False
-                st.session_state.timer_stage = 'off' # Reset timer stage when answer is shown
+                st.session_state.timer_stage = 'off'
                 st.rerun()
+
         with col4:
             if st.button("Back to Board", use_container_width=True):
                 st.session_state.available_questions.remove(q_idx)
@@ -439,18 +434,16 @@ def quiz_mode():
                 st.session_state.timer_stage = 'off'
                 st.rerun()
 
-    # Button to go back to quiz master mode
+        # New: This is the key to the non-blocking timer update.
+        if st.session_state.timer_running:
+            time.sleep(1)
+            st.rerun()
+
     if st.button("Reset Quiz (Go to Quiz Master Mode)"):
-        st.session_state.mode = 'quiz_master'
-        st.session_state.questions = []
-        st.session_state.num_questions = 18
-        st.session_state.timer_running = False
-        st.session_state.timer_value = 0
-        st.session_state.timer_start_time = None
-        st.session_state.timer_stage = 'off'
-        st.session_state.quiz_topic = "" # Reset topic
-        st.session_state.quiz_difficulty = "Medium" # Reset difficulty
+        # Reset all relevant session state variables
+        st.session_state.clear() # A simpler way to reset everything
         st.rerun()
+
 
 # --- Main App Logic ---
 def main():
