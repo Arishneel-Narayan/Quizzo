@@ -376,8 +376,6 @@ def quiz_mode():
                 
         # Handle the state when the timer is not running
         if not st.session_state.timer_running:
-            # Removed explicit "Timer Stopped!" message.
-            # It will now default to "No Timer Running" or the current stage.
             timer_label = st.session_state.timer_stage.replace('_', ' ').title() if st.session_state.timer_stage != 'off' else "No Timer Running"
             timer_placeholder.markdown(f"""
             <div class="timer-info-container">
@@ -397,8 +395,15 @@ def quiz_mode():
             """, unsafe_allow_html=True)
 
         # Buttons to control the quiz flow
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 1]) # Added a column for Stop Timer
+        # "End Current Timer" is now the first button for prominence
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1]) 
         with col1:
+            if st.button("End Current Timer", use_container_width=True, disabled=not st.session_state.timer_running):
+                st.session_state.timer_running = False
+                st.session_state.timer_stage = 'off' # Revert to 'off' stage
+                st.info("Timer stopped!") # Immediate feedback
+                st.rerun()
+        with col2:
             if st.session_state.timer_stage == 'off' and st.button("Start First Person Timer", use_container_width=True):
                 st.session_state.timer_running = True
                 st.session_state.timer_value = st.session_state.timers['x']
@@ -416,12 +421,6 @@ def quiz_mode():
                 st.session_state.timer_value = st.session_state.timers['z']
                 st.session_state.timer_start_time = time.time()
                 st.session_state.timer_stage = 'opposing_team'
-                st.rerun()
-        with col2:
-            if st.button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
-                st.session_state.timer_running = False
-                st.session_state.timer_stage = 'off' # Revert to 'off' stage instead of 'stopped'
-                st.info("Timer stopped!") # Immediate feedback
                 st.rerun()
         with col3:
             if st.button("Show Answer", use_container_width=True):
