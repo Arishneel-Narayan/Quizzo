@@ -12,8 +12,9 @@ import math
 import io
 import pandas as pd
 
-# --- Beeper Sound Generation (Unchanged) ---
+# --- Beeper Sound Generation ---
 def generate_beep_sound():
+    """Generates a WAV beep sound in memory and returns it as a Base64 string."""
     sample_rate = 44100
     duration_s = 0.5
     freq_hz = 880.0
@@ -40,6 +41,7 @@ BEEP_WAV_BASE64 = generate_beep_sound()
 
 # --- Session State Initialization ---
 def initialize_session_state():
+    """Sets up the default values for the session state."""
     defaults = {
         'mode': 'quiz_master',
         'questions': [],
@@ -47,7 +49,7 @@ def initialize_session_state():
         'available_questions': [],
         'current_question_index': None,
         'show_answer': False,
-        'timers': {'x': 20, 'y': 15, 'z': 3},
+        'timers': {'x': 20, 'y': 15, 'z': 10}, # Default timer values
         'timer_running': False,
         'timer_value': 0,
         'timer_start_time': None,
@@ -66,8 +68,9 @@ def initialize_session_state():
 initialize_session_state()
 
 
-# --- Gemini API Integration (Modified Prompt) ---
+# --- Gemini API Integration ---
 def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
+    """Generates quiz questions using the Gemini API with a specific prompt."""
     if num_questions <= 0:
         return []
     prompt = (
@@ -94,8 +97,9 @@ def generate_quiz_questions_with_gemini(num_questions, topic, difficulty):
         st.error(f"Error generating '{difficulty}' questions: {e}")
         return []
 
-# --- Mixed Difficulty Question Generation (Unchanged) ---
+# --- Mixed Difficulty Question Generation ---
 def generate_mixed_difficulty_questions(total_questions, topic):
+    """Generates a shuffled list of questions with a 30/40/30 easy/medium/hard split."""
     difficulty_mix = {'Easy': 0.3, 'Medium': 0.4, 'Hard': 0.3}
     num_easy = int(total_questions * difficulty_mix['Easy'])
     num_medium = int(total_questions * difficulty_mix['Medium'])
@@ -110,8 +114,9 @@ def generate_mixed_difficulty_questions(total_questions, topic):
     random.shuffle(all_questions)
     return all_questions
 
-# --- Excel File Creation (Unchanged) ---
+# --- Excel File Creation ---
 def create_excel_download(questions):
+    """Converts the list of questions to an in-memory Excel file for download."""
     if not questions: return None
     df = pd.DataFrame(questions)
     output = io.BytesIO()
@@ -120,14 +125,12 @@ def create_excel_download(questions):
     return output.getvalue()
 
 
-# --- CSS (Unchanged from previous fix) ---
+# --- CSS Styling ---
 st.markdown("""
 <style>
-    /* General Styles */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
     html, body, [class*="st-"] { font-family: 'Inter', sans-serif; }
     
-    /* General Button Styles */
     .stButton>button {
         transition: all 0.3s ease; border-radius: 8px; border: none;
         font-weight: 600; color: white; background-color: #F4C430;
@@ -135,7 +138,6 @@ st.markdown("""
     }
     .stButton>button:hover { background-color: #FFD700; transform: translateY(-2px); }
 
-    /* Question Grid Button Styles */
     .question-grid-cell button {
         background-color: #ffffff !important; border: 2px solid #F4C430 !important;
         color: #333333 !important; font-size: 2rem; font-weight: bold; height: 100px;
@@ -147,7 +149,6 @@ st.markdown("""
         border-color: #d3d3d3 !important;
     }
     
-    /* Chosen Question Display Styles */
     .chosen-question-container { text-align: center; }
     .chosen-question-card {
         background: linear-gradient(135deg, #FFD700, #F4C430); color: white;
@@ -165,8 +166,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- Quiz Master Mode (Unchanged) ---
+# --- UI Mode: Quiz Master Setup ---
 def quiz_master_mode():
+    """Renders the initial setup screen for the quiz master."""
     st.image("https://placehold.co/800x200/F4C430/ffffff?text=Quizzo+Quiz+Master", use_container_width=True)
     st.markdown("<h2 style='text-align: center;'>Welcome, Quiz Master!</h2>", unsafe_allow_html=True)
     
@@ -200,11 +202,13 @@ def quiz_master_mode():
                 else: st.error("Could not generate questions. Please check the topic and try again.")
             else: st.warning("Please enter a quiz topic and both team names.")
 
-# --- Quiz Mode (Corrected) ---
+# --- UI Mode: Live Quiz ---
 def quiz_mode():
+    """Renders the main quiz board and the question display screen."""
     team1, team2 = st.session_state.team1_name, st.session_state.team2_name
     score1, score2 = st.session_state.scores.get(team1, 0), st.session_state.scores.get(team2, 0)
 
+    # Display Scoreboard and Download Button
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1: st.metric(label=f"**{team1}**", value=f"{score1} Points")
     with col2: st.metric(label=f"**{team2}**", value=f"{score2} Points")
@@ -213,6 +217,7 @@ def quiz_mode():
             st.download_button( label="📥 Download Q&A", data=st.session_state.excel_file, file_name=f"{st.session_state.quiz_topic.replace(' ', '_')}_quiz.xlsx", mime="application/vnd.ms-excel" )
     st.markdown("---")
     
+    # Display Question Grid or Selected Question
     if st.session_state.current_question_index is None:
         st.markdown("<h2 style='text-align: center;'>Choose a Question</h2>", unsafe_allow_html=True)
         cols = st.columns(6)
@@ -228,10 +233,10 @@ def quiz_mode():
                 else: st.button("✅", key=f"q_btn_{i}", disabled=True, use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
     else:
-        # --- This is the block that was missing. It is now restored. ---
         q_idx = st.session_state.current_question_index
         question_data = st.session_state.questions[q_idx]
 
+        # Display Question Card and Timer
         st.markdown(f"""
         <div class="chosen-question-container">
             <div class="chosen-question-card">
@@ -256,12 +261,12 @@ def quiz_mode():
         else:
             timer_placeholder.markdown('<div class="timer-label-text">No Timer Running</div><div class="timer-value-text">--</div>', unsafe_allow_html=True)
 
-        st.markdown("</div></div>", unsafe_allow_html=True) # Close card and container
+        st.markdown("</div></div>", unsafe_allow_html=True)
         
         if st.session_state.show_answer:
             st.markdown(f"<div class='chosen-answer-text'>Answer: {question_data['answer']}</div>", unsafe_allow_html=True)
 
-        # Scoring Logic
+        # Scoring Buttons
         points_map = {'first_person': 3, 'team': 2, 'opposing_team': 1}
         points_to_award = points_map.get(st.session_state.timer_stage, 0)
 
@@ -274,10 +279,8 @@ def quiz_mode():
         if points_to_award > 0 and st.session_state.timer_running:
             st.markdown(f"**Award {points_to_award} Points To:**")
             score_col1, score_col2 = st.columns(2)
-            if score_col1.button(f"✅ {team1}", use_container_width=True):
-                award_points_and_go_back(team1, points_to_award)
-            if score_col2.button(f"✅ {team2}", use_container_width=True):
-                award_points_and_go_back(team2, points_to_award)
+            if score_col1.button(f"✅ {team1}", use_container_width=True): award_points_and_go_back(team1, points_to_award)
+            if score_col2.button(f"✅ {team2}", use_container_width=True): award_points_and_go_back(team2, points_to_award)
 
         # Control Buttons
         ctrl_cols = st.columns(4)
@@ -294,9 +297,9 @@ def quiz_mode():
 
         if st.session_state.timer_stage == 'off':
             if ctrl_cols[1].button("Start Timer (3 Pts)", use_container_width=True): start_timer('first_person', 'x')
-        elif st.session_state.timer_stage == 'first_person' and not st.session_state.timer_running:
+        elif st.session_state.timer_stage == 'first_person':
             if ctrl_cols[1].button("Start Timer (2 Pts)", use_container_width=True): start_timer('team', 'y')
-        elif st.session_state.timer_stage == 'team' and not st.session_state.timer_running:
+        elif st.session_state.timer_stage == 'team':
             if ctrl_cols[1].button("Start Timer (1 Pt)", use_container_width=True): start_timer('opposing_team', 'z')
         
         if ctrl_cols[2].button("Show Answer", use_container_width=True):
@@ -311,7 +314,6 @@ def quiz_mode():
         if st.session_state.timer_running:
             time.sleep(1)
             st.rerun()
-        # --- End of restored block ---
 
     if st.button("Reset Quiz (Go to Quiz Master Mode)"):
         st.session_state.clear()
@@ -320,7 +322,11 @@ def quiz_mode():
 
 # --- Main App Logic ---
 def main():
-    if st.session_state.mode == 'quiz_master': quiz_master_mode()
-    elif st.session_state.mode == 'quiz': quiz_mode()
+    """Main function to control which UI mode to display."""
+    if st.session_state.mode == 'quiz_master':
+        quiz_master_mode()
+    elif st.session_state.mode == 'quiz':
+        quiz_mode()
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    main()
