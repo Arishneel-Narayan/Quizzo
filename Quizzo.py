@@ -19,8 +19,9 @@ if 'current_question_index' not in st.session_state:
     st.session_state.current_question_index = None
 if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
+# Updated default timer values
 if 'timers' not in st.session_state:
-    st.session_state.timers = {'x': 60, 'y': 90, 'z': 30}
+    st.session_state.timers = {'x': 20, 'y': 15, 'z': 3} # Default timers: 20s, 15s, 3s
 if 'timer_running' not in st.session_state:
     st.session_state.timer_running = False
 if 'timer_value' not in st.session_state:
