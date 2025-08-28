@@ -28,7 +28,7 @@ if 'timer_value' not in st.session_state:
 if 'timer_start_time' not in st.session_state:
     st.session_state.timer_start_time = None
 if 'timer_stage' not in st.session_state:
-    st.session_state.timer_stage = 'off'
+    st.session_state.timer_stage = 'off' # 'off', 'first_person', 'team', 'opposing_team'
 if 'quiz_topic' not in st.session_state:
     st.session_state.quiz_topic = ""
 if 'quiz_difficulty' not in st.session_state:
@@ -376,6 +376,8 @@ def quiz_mode():
                 
         # Handle the state when the timer is not running
         if not st.session_state.timer_running:
+            # Removed explicit "Timer Stopped!" message.
+            # It will now default to "No Timer Running" or the current stage.
             timer_label = st.session_state.timer_stage.replace('_', ' ').title() if st.session_state.timer_stage != 'off' else "No Timer Running"
             timer_placeholder.markdown(f"""
             <div class="timer-info-container">
@@ -418,11 +420,14 @@ def quiz_mode():
         with col2:
             if st.button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
                 st.session_state.timer_running = False
+                st.session_state.timer_stage = 'off' # Revert to 'off' stage instead of 'stopped'
+                st.info("Timer stopped!") # Immediate feedback
                 st.rerun()
         with col3:
             if st.button("Show Answer", use_container_width=True):
                 st.session_state.show_answer = True
                 st.session_state.timer_running = False
+                st.session_state.timer_stage = 'off' # Reset timer stage when answer is shown
                 st.rerun()
         with col4:
             if st.button("Back to Board", use_container_width=True):
