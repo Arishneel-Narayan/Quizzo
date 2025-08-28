@@ -395,7 +395,7 @@ def quiz_mode():
             """, unsafe_allow_html=True)
 
         # Buttons to control the quiz flow
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1]) # Added a column for Stop Timer
         with col1:
             if st.session_state.timer_stage == 'off' and st.button("Start First Person Timer", use_container_width=True):
                 st.session_state.timer_running = True
@@ -416,11 +416,15 @@ def quiz_mode():
                 st.session_state.timer_stage = 'opposing_team'
                 st.rerun()
         with col2:
+            if st.button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
+                st.session_state.timer_running = False
+                st.rerun()
+        with col3:
             if st.button("Show Answer", use_container_width=True):
                 st.session_state.show_answer = True
                 st.session_state.timer_running = False
                 st.rerun()
-        with col3:
+        with col4:
             if st.button("Back to Board", use_container_width=True):
                 st.session_state.available_questions.remove(q_idx)
                 st.session_state.current_question_index = None
