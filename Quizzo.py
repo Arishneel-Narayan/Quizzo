@@ -43,7 +43,7 @@ BEEP_WAV_BASE64 = generate_beep_sound()
 def initialize_session_state():
     """Sets up the default values for the session state."""
     defaults = {
-        'mode': 'quiz_master',
+        'mode': 'quiz_master', # New mode 'ready' will be used
         'questions': [],
         'num_questions': 18,
         'available_questions': [],
@@ -60,7 +60,7 @@ def initialize_session_state():
         'team2_name': "Team B",
         'scores': {"Team A": 0, "Team B": 0},
         'excel_file': None,
-        'points_awarded': False # Tracks if points have been given for the current question
+        'points_awarded': False
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -196,12 +196,33 @@ def quiz_master_mode():
                     st.session_state.questions = gen_qs
                     st.session_state.num_questions = len(gen_qs)
                     st.session_state.available_questions = list(range(len(gen_qs)))
-                    st.session_state.mode = 'quiz'
                     st.session_state.scores = {st.session_state.team1_name: 0, st.session_state.team2_name: 0}
                     st.session_state.excel_file = create_excel_download(gen_qs)
+                    st.session_state.mode = 'ready' # New: Go to the 'ready' screen first
                     st.rerun()
                 else: st.error("Could not generate questions. Please check the topic and try again.")
             else: st.warning("Please enter a quiz topic and both team names.")
+
+# --- New UI Mode: Ready Screen ---
+def ready_mode():
+    """Displays a screen to download the file before starting the quiz."""
+    st.success("🎉 Quiz Generated Successfully!")
+    st.markdown("### ⬇️ Download the Questions & Answers File")
+    st.markdown("Click the button below to download the Q&A file for your reference before starting.")
+    
+    st.download_button(
+        label="Download Q&A Excel File",
+        data=st.session_state.excel_file,
+        file_name=f"{st.session_state.quiz_topic.replace(' ', '_')}_quiz.xlsx",
+        mime="application/vnd.ms-excel",
+        use_container_width=True
+    )
+    
+    st.markdown("---")
+    
+    if st.button("Proceed to Quiz Board", use_container_width=True):
+        st.session_state.mode = 'quiz'
+        st.rerun()
 
 # --- UI Mode: Live Quiz ---
 def quiz_mode():
@@ -209,13 +230,10 @@ def quiz_mode():
     team1, team2 = st.session_state.team1_name, st.session_state.team2_name
     score1, score2 = st.session_state.scores.get(team1, 0), st.session_state.scores.get(team2, 0)
 
-    # Display Scoreboard and Download Button
-    col1, col2, col3 = st.columns([2, 2, 1])
+    # Display Scoreboard (Download Button is removed from here)
+    col1, col2 = st.columns(2)
     with col1: st.metric(label=f"**{team1}**", value=f"{score1} Points")
     with col2: st.metric(label=f"**{team2}**", value=f"{score2} Points")
-    with col3:
-        if st.session_state.excel_file:
-            st.download_button( label="📥 Download Q&A", data=st.session_state.excel_file, file_name=f"{st.session_state.quiz_topic.replace(' ', '_')}_quiz.xlsx", mime="application/vnd.ms-excel" )
     st.markdown("---")
     
     # Display Question Grid or Selected Question
@@ -330,6 +348,8 @@ def main():
     """Main function to control which UI mode to display."""
     if st.session_state.mode == 'quiz_master':
         quiz_master_mode()
+    elif st.session_state.mode == 'ready': # New: Handle the 'ready' mode
+        ready_mode()
     elif st.session_state.mode == 'quiz':
         quiz_mode()
 
