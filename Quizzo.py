@@ -43,7 +43,7 @@ BEEP_WAV_BASE64 = generate_beep_sound()
 def initialize_session_state():
     """Sets up the default values for the session state."""
     defaults = {
-        'mode': 'quiz_master', # New mode 'ready' will be used
+        'mode': 'quiz_master',
         'questions': [],
         'num_questions': 18,
         'available_questions': [],
@@ -198,27 +198,50 @@ def quiz_master_mode():
                     st.session_state.available_questions = list(range(len(gen_qs)))
                     st.session_state.scores = {st.session_state.team1_name: 0, st.session_state.team2_name: 0}
                     st.session_state.excel_file = create_excel_download(gen_qs)
-                    st.session_state.mode = 'ready' # New: Go to the 'ready' screen first
+                    st.session_state.mode = 'ready'
                     st.rerun()
                 else: st.error("Could not generate questions. Please check the topic and try again.")
             else: st.warning("Please enter a quiz topic and both team names.")
 
-# --- New UI Mode: Ready Screen ---
+# --- UI Mode: Edit & Download Screen ---
 def ready_mode():
-    """Displays a screen to download the file before starting the quiz."""
-    st.success("🎉 Quiz Generated Successfully!")
-    st.markdown("### ⬇️ Download the Questions & Answers File")
-    st.markdown("Click the button below to download the Q&A file for your reference before starting.")
-    
-    st.download_button(
-        label="Download Q&A Excel File",
-        data=st.session_state.excel_file,
-        file_name=f"{st.session_state.quiz_topic.replace(' ', '_')}_quiz.xlsx",
-        mime="application/vnd.ms-excel",
-        use_container_width=True
-    )
-    
-    st.markdown("---")
+    """Displays a screen to edit questions and download the file before starting."""
+    st.info("📝 Review and edit the generated questions and answers below.")
+    st.markdown("### Edit Questions & Answers")
+
+    with st.form(key="edit_form"):
+        for i, qa in enumerate(st.session_state.questions):
+            st.text_area(
+                label=f"Question {i+1}",
+                value=qa['question'],
+                key=f"q_edit_{i}"
+            )
+            st.text_input(
+                label=f"Answer {i+1}",
+                value=qa['answer'],
+                key=f"a_edit_{i}"
+            )
+            st.markdown("---")
+
+        submitted = st.form_submit_button("Save All Changes")
+        if submitted:
+            # Update the main questions list from the widget states
+            for i in range(len(st.session_state.questions)):
+                st.session_state.questions[i]['question'] = st.session_state[f"q_edit_{i}"]
+                st.session_state.questions[i]['answer'] = st.session_state[f"a_edit_{i}"]
+            
+            # Regenerate the Excel file with the updated questions
+            st.session_state.excel_file = create_excel_download(st.session_state.questions)
+            st.success("Changes saved! Your download file is updated.")
+
+    if st.session_state.excel_file:
+        st.download_button(
+            label="Download Updated Q&A Excel File",
+            data=st.session_state.excel_file,
+            file_name=f"{st.session_state.quiz_topic.replace(' ', '_')}_quiz_edited.xlsx",
+            mime="application/vnd.ms-excel",
+            use_container_width=True
+        )
     
     if st.button("Proceed to Quiz Board", use_container_width=True):
         st.session_state.mode = 'quiz'
@@ -230,7 +253,7 @@ def quiz_mode():
     team1, team2 = st.session_state.team1_name, st.session_state.team2_name
     score1, score2 = st.session_state.scores.get(team1, 0), st.session_state.scores.get(team2, 0)
 
-    # Display Scoreboard (Download Button is removed from here)
+    # Display Scoreboard
     col1, col2 = st.columns(2)
     with col1: st.metric(label=f"**{team1}**", value=f"{score1} Points")
     with col2: st.metric(label=f"**{team2}**", value=f"{score2} Points")
@@ -297,7 +320,7 @@ def quiz_mode():
         points_map = {'first_person': 3, 'team': 2, 'opposing_team': 1}
         points_to_award = points_map.get(st.session_state.timer_stage, 0)
 
-        if points_to_award > 0 and st.session_state.timer_running:
+        if points_to_award > 0:
             st.markdown(f"**Award {points_to_award} Points To:**")
             score_col1, score_col2 = st.columns(2)
             if score_col1.button(f"✅ {team1}", use_container_width=True, disabled=st.session_state.points_awarded):
@@ -307,8 +330,9 @@ def quiz_mode():
 
         # Control Buttons
         ctrl_cols = st.columns(4)
+        
         if ctrl_cols[0].button("End Timer", use_container_width=True, disabled=not st.session_state.timer_running):
-            st.session_state.timer_running, st.session_state.timer_stage = False, 'off'
+            st.session_state.timer_running = False
             st.rerun()
             
         def start_timer(stage, duration_key):
@@ -326,7 +350,8 @@ def quiz_mode():
             if ctrl_cols[1].button("Start Timer (1 Pt)", use_container_width=True): start_timer('opposing_team', 'z')
         
         if ctrl_cols[2].button("Show Answer", use_container_width=True):
-            st.session_state.show_answer, st.session_state.timer_running = True, False
+            st.session_state.show_answer = True
+            st.session_state.timer_running = False
             st.rerun()
 
         if ctrl_cols[3].button("Back to Board", use_container_width=True):
@@ -348,7 +373,7 @@ def main():
     """Main function to control which UI mode to display."""
     if st.session_state.mode == 'quiz_master':
         quiz_master_mode()
-    elif st.session_state.mode == 'ready': # New: Handle the 'ready' mode
+    elif st.session_state.mode == 'ready':
         ready_mode()
     elif st.session_state.mode == 'quiz':
         quiz_mode()
