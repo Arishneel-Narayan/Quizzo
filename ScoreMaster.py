@@ -6,6 +6,7 @@ import wave
 import struct
 import math
 import io
+import streamlit.components.v1 as components # New: Import components library
 
 # --- Beeper Sound Generation ---
 def generate_beep_sound():
@@ -32,6 +33,15 @@ def generate_beep_sound():
     return base64.b64encode(buffer.read()).decode('utf-8')
 
 BEEP_WAV_BASE64 = generate_beep_sound()
+
+# --- New: Function to reliably play the beep sound ---
+def play_beep_sound():
+    """Embeds an HTML audio player that is triggered to play by JavaScript."""
+    components.html(f"""
+        <audio autoplay>
+        <source src="data:audio/wav;base64,{BEEP_WAV_BASE64}" type="audio/wav">
+        </audio>
+    """, height=0)
 
 
 # --- Session State Initialization ---
@@ -130,7 +140,7 @@ def scoring_mode():
 
     # --- Display Timer ---
     st.markdown('<div class="timer-container">', unsafe_allow_html=True)
-    timer_placeholder, sound_placeholder = st.empty(), st.empty()
+    timer_placeholder = st.empty()
     if st.session_state.timer_running:
         elapsed = time.time() - st.session_state.timer_start_time
         remaining = st.session_state.timer_value - elapsed
@@ -140,8 +150,8 @@ def scoring_mode():
             st.session_state.timer_running = False
             timer_placeholder.markdown(f'<div class="timer-label-text">Time\'s Up!</div><div class="timer-value-text">0s</div>', unsafe_allow_html=True)
             if not st.session_state.sound_played:
-                sound_html = f'<audio autoplay><source src="data:audio/wav;base64,{BEEP_WAV_BASE64}" type="audio/wav"></audio>'
-                sound_placeholder.markdown(sound_html, unsafe_allow_html=True)
+                # New: Call the reliable sound playing function
+                play_beep_sound()
                 st.session_state.sound_played = True
             st.rerun()
     else:
