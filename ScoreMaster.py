@@ -152,11 +152,21 @@ def scoring_mode():
     current_team_idx = st.session_state.current_team_idx
     current_team = team_names[current_team_idx]
 
-    # --- Display Scoreboard ---
+    # --- Display Scoreboard with Edit Controls ---
     cols = st.columns(3)
     for i, team in enumerate(team_names):
         with cols[i]:
             st.metric(label=f"**{team}**", value=f"{scores.get(team, 0)} Points")
+            st.write("")
+            col1, col2 = st.columns([1,1])
+            with col1:
+                if st.button(f"➖", key=f"dec_{team}"):
+                    st.session_state.scores[team] = max(0, st.session_state.scores[team] - 1)
+                    st.rerun()
+            with col2:
+                if st.button(f"➕", key=f"inc_{team}"):
+                    st.session_state.scores[team] += 1
+                    st.rerun()
     st.markdown("---")
 
     # --- Show current question stage and team ---
