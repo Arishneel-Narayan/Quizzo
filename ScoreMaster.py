@@ -211,17 +211,26 @@ def scoring_mode():
         st.session_state.timer_running = False
         st.rerun()
 
-    if ctrl_cols[2].button("Next Team"):
-        st.session_state.timer_stage = 'off'
-        st.session_state.timer_running = False
-        st.session_state.points_awarded = False
-        st.session_state.current_team_idx = (st.session_state.current_team_idx + 1) % 3
-        st.rerun()
+    # Remove Next Team button. Instead, automatically advance to next team after each round.
 
     if ctrl_cols[3].button("Reset Game"):
         st.session_state.clear()
         initialize_session_state()
         st.rerun()
+
+    # Automatically advance to next team when timer_stage is reset to 'off' after a round
+    if (
+        not st.session_state.timer_running
+        and st.session_state.timer_stage == 'off'
+        and not st.session_state.points_awarded
+        and 'last_team_idx' in st.session_state
+        and st.session_state.last_team_idx != st.session_state.current_team_idx
+    ):
+        st.session_state.current_team_idx = (st.session_state.current_team_idx + 1) % 3
+        st.session_state.last_team_idx = st.session_state.current_team_idx
+        st.rerun()
+    elif 'last_team_idx' not in st.session_state:
+        st.session_state.last_team_idx = st.session_state.current_team_idx
 
     if st.session_state.timer_running:
         time.sleep(1)
