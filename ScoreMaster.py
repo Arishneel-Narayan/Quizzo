@@ -167,7 +167,7 @@ def scoring_mode():
 
     # BOTTOM: Score Edit Controls
     st.markdown("---")
-    show_edit = st.checkbox("Show Score Edit Buttons", value=False, key="show_edit_scores")
+    show_edit = st.checkbox("Edit", value=False, key="show_edit_scores")
     if show_edit:
         st.markdown("<h4>Edit Scores</h4>", unsafe_allow_html=True)
         cols = st.columns(3)
