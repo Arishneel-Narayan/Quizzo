@@ -8,8 +8,8 @@ import math
 import io
 import streamlit.components.v1 as components # New: Import components library
 
-# --- Sound file URL from GitHub ---
-GITHUB_SOUND_URL = "https://raw.githubusercontent.com/Arishneel-Narayan/Quizzo/main/times-up-omagod"
+# --- Sound file URL from GitHub (raw .mp3) ---
+GITHUB_SOUND_URL = "https://raw.githubusercontent.com/Arishneel-Narayan/Quizzo/main/times-up-omagod.mp3"
 
 # --- Beeper Sound Generation ---
 def generate_beep_sound():
@@ -42,7 +42,7 @@ BEEP_WAV_BASE64 = generate_beep_sound()
 def play_github_sound():
     """Embeds an HTML audio player for the GitHub-hosted sound file. Plays on user action (button click)."""
     components.html(f"""
-        <audio id='timer-audio' src='{GITHUB_SOUND_URL}'></audio>
+        <audio id='timer-audio' src='{GITHUB_SOUND_URL}' type='audio/mpeg'></audio>
         <script>
         // Attach click handler to the play button
         window.addEventListener('DOMContentLoaded', function() {{
