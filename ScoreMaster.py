@@ -55,10 +55,10 @@ def initialize_session_state():
         'timer_start_time': None,
         'timer_stage': 'off',
         'sound_played': False,
-        'team1_name': "Team A",
-        'team2_name': "Team B",
-        'scores': {"Team A": 0, "Team B": 0},
-        'points_awarded': False
+        'team_names': ["Team A", "Team B", "Team C"],
+        'scores': {"Team A": 0, "Team B": 0, "Team C": 0},
+        'points_awarded': False,
+        'current_team_idx': 0
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -107,35 +107,45 @@ def setup_mode():
     
     with st.form(key='setup_form'):
         st.subheader("Enter Team Names")
-        col_t1, col_t2 = st.columns(2)
-        with col_t1: st.session_state.team1_name = st.text_input("Team 1 Name", st.session_state.team1_name)
-        with col_t2: st.session_state.team2_name = st.text_input("Team 2 Name", st.session_state.team2_name)
-        
+        col_t1, col_t2, col_t3 = st.columns(3)
+        team_names = st.session_state.team_names
+        with col_t1:
+            team_names[0] = st.text_input("Team 1 Name", team_names[0])
+        with col_t2:
+            team_names[1] = st.text_input("Team 2 Name", team_names[1])
+        with col_t3:
+            team_names[2] = st.text_input("Team 3 Name", team_names[2])
+        st.session_state.team_names = team_names
+
         st.markdown("---")
         st.subheader("Set the Timers (in seconds)")
         col_x, col_y, col_z = st.columns(3)
         with col_x: st.session_state.timers['x'] = st.number_input('Timer for 3 Pts', value=20, min_value=1)
         with col_y: st.session_state.timers['y'] = st.number_input('Timer for 2 Pts', value=15, min_value=1)
         with col_z: st.session_state.timers['z'] = st.number_input('Timer for 1 Pt', value=10, min_value=1)
-        
+
         if st.form_submit_button("Start Game!"):
-            if st.session_state.team1_name and st.session_state.team2_name:
-                st.session_state.scores = {st.session_state.team1_name: 0, st.session_state.team2_name: 0}
+            if all(name.strip() for name in st.session_state.team_names):
+                st.session_state.scores = {name: 0 for name in st.session_state.team_names}
+                st.session_state.current_team_idx = 0
                 st.session_state.mode = 'scoring'
                 st.rerun()
             else:
-                st.warning("Please enter both team names.")
+                st.warning("Please enter all three team names.")
 
 # --- UI Mode: Scoring & Timing Dashboard ---
 def scoring_mode():
     """Renders the main dashboard for scoring and timing."""
-    team1, team2 = st.session_state.team1_name, st.session_state.team2_name
-    score1, score2 = st.session_state.scores.get(team1, 0), st.session_state.scores.get(team2, 0)
+    team_names = st.session_state.team_names
+    scores = st.session_state.scores
+    current_team_idx = st.session_state.current_team_idx
+    current_team = team_names[current_team_idx]
 
     # --- Display Scoreboard ---
-    col1, col2 = st.columns(2)
-    with col1: st.metric(label=f"**{team1}**", value=f"{score1} Points")
-    with col2: st.metric(label=f"**{team2}**", value=f"{score2} Points")
+    cols = st.columns(3)
+    for i, team in enumerate(team_names):
+        with cols[i]:
+            st.metric(label=f"**{team}**", value=f"{scores.get(team, 0)} Points")
     st.markdown("---")
 
     # --- Display Timer ---
@@ -170,11 +180,10 @@ def scoring_mode():
 
     if points_to_award > 0:
         st.markdown(f"**Award {points_to_award} Points To:**")
-        score_col1, score_col2 = st.columns(2)
-        if score_col1.button(f"✅ {team1}", use_container_width=True, disabled=st.session_state.points_awarded):
-            award_points(team1, points_to_award)
-        if score_col2.button(f"✅ {team2}", use_container_width=True, disabled=st.session_state.points_awarded):
-            award_points(team2, points_to_award)
+        score_cols = st.columns(3)
+        for i, team in enumerate(team_names):
+            if score_cols[i].button(f"✅ {team}", use_container_width=True, disabled=st.session_state.points_awarded):
+                award_points(team, points_to_award)
 
     st.markdown("---")
 
@@ -189,20 +198,24 @@ def scoring_mode():
 
     ctrl_cols = st.columns(4)
     if st.session_state.timer_stage == 'off':
-        if ctrl_cols[0].button("Start Timer (3 Pts)", use_container_width=True): start_timer('first_person', 'x')
+        if ctrl_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
+            start_timer('first_person', 'x')
     elif st.session_state.timer_stage == 'first_person':
-        if ctrl_cols[0].button("Start Timer (2 Pts)", use_container_width=True): start_timer('team', 'y')
+        if ctrl_cols[0].button(f"Start Timer (2 Pts) for {current_team}", use_container_width=True):
+            start_timer('team', 'y')
     elif st.session_state.timer_stage == 'team':
-        if ctrl_cols[0].button("Start Timer (1 Pt)", use_container_width=True): start_timer('opposing_team', 'z')
-    
+        if ctrl_cols[0].button(f"Start Timer (1 Pt) for {current_team}", use_container_width=True):
+            start_timer('opposing_team', 'z')
+
     if ctrl_cols[1].button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
         st.session_state.timer_running = False
         st.rerun()
-    
-    if ctrl_cols[2].button("Next Round"):
+
+    if ctrl_cols[2].button("Next Team"):
         st.session_state.timer_stage = 'off'
         st.session_state.timer_running = False
         st.session_state.points_awarded = False
+        st.session_state.current_team_idx = (st.session_state.current_team_idx + 1) % 3
         st.rerun()
 
     if ctrl_cols[3].button("Reset Game"):
