@@ -8,6 +8,9 @@ import math
 import io
 import streamlit.components.v1 as components # New: Import components library
 
+# --- Sound file URL from GitHub ---
+GITHUB_SOUND_URL = "https://raw.githubusercontent.com/Arishneel-Narayan/Quizzo/main/times-up-omagod"
+
 # --- Beeper Sound Generation ---
 def generate_beep_sound():
     """Generates a WAV beep sound in memory and returns it as a Base64 string."""
@@ -35,12 +38,20 @@ def generate_beep_sound():
 BEEP_WAV_BASE64 = generate_beep_sound()
 
 # --- New: Function to reliably play the beep sound ---
-def play_beep_sound():
-    """Embeds an HTML audio player that is triggered to play by JavaScript."""
+
+def play_github_sound():
+    """Embeds an HTML audio player for the GitHub-hosted sound file. Only plays on user action (button click)."""
     components.html(f"""
-        <audio autoplay>
-        <source src="data:audio/wav;base64,{BEEP_WAV_BASE64}" type="audio/wav">
-        </audio>
+        <audio id='timer-audio' src='{GITHUB_SOUND_URL}'></audio>
+        <script>
+        var btn = window.parent.document.getElementById('play-timer-audio-btn');
+        if(btn) {{
+            btn.onclick = function() {{
+                var audio = document.getElementById('timer-audio');
+                if(audio) audio.play();
+            }}
+        }}
+        </script>
     """, height=0)
 
 
@@ -169,8 +180,10 @@ def scoring_mode():
             st.session_state.timer_running = False
             timer_placeholder.markdown(f'<div class="timer-label-text">Time\'s Up!</div><div class="timer-value-text">0s</div>', unsafe_allow_html=True)
             if not st.session_state.sound_played:
-                # New: Call the reliable sound playing function
-                play_beep_sound()
+                st.warning("⏰ Time's up! Click the button below to play the sound.")
+                play_github_sound()
+                # Add a button for user to play sound
+                st.button("🔊 Play Time's Up Sound", key="play-timer-audio-btn")
                 st.session_state.sound_played = True
             st.rerun()
     else:
