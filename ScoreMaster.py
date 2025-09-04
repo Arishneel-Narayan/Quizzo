@@ -198,13 +198,13 @@ def scoring_mode():
 
     ctrl_cols = st.columns(4)
     if st.session_state.timer_stage == 'off':
-        if ctrl_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
+        if ctrl_cols[0].button("Start Timer (3 Pts)", use_container_width=True):
             start_timer('first_person', 'x')
     elif st.session_state.timer_stage == 'first_person':
-        if ctrl_cols[0].button(f"Start Timer (2 Pts) for {current_team}", use_container_width=True):
+        if ctrl_cols[0].button("Start Timer (2 Pts)", use_container_width=True):
             start_timer('team', 'y')
     elif st.session_state.timer_stage == 'team':
-        if ctrl_cols[0].button(f"Start Timer (1 Pt) for {current_team}", use_container_width=True):
+        if ctrl_cols[0].button("Start Timer (1 Pt)", use_container_width=True):
             start_timer('opposing_team', 'z')
 
     if ctrl_cols[1].button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
@@ -226,6 +226,8 @@ def scoring_mode():
     if st.session_state.timer_running:
         time.sleep(1)
         st.rerun()
+
+    # Ensure beep sound is played at timer end (already handled in timer display logic)
 
 # --- Main App Logic ---
 def main():
