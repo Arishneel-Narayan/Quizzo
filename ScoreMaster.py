@@ -72,7 +72,8 @@ def initialize_session_state():
         'team_names': ["Team A", "Team B", "Team C"],
         'scores': {"Team A": 0, "Team B": 0, "Team C": 0},
         'points_awarded': False,
-        'current_team_idx': 0
+        'current_team_idx': 0,
+        'display_mode': 'quiz'  # 'quiz' or 'scores'
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -281,7 +282,7 @@ def scoring_mode():
         st.session_state.points_awarded = False
         st.rerun()
 
-    ctrl_cols = st.columns(4)
+    ctrl_cols = st.columns(6)
     if st.session_state.timer_stage == 'off':
         if ctrl_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
             start_timer('first_person', 'x')
@@ -291,12 +292,23 @@ def scoring_mode():
     elif st.session_state.timer_stage == 'team':
         if ctrl_cols[0].button("Start Timer (1 Pt)", use_container_width=True):
             start_timer('opposing_team', 'z')
+    # Display Scores button
+    if ctrl_cols[5].button("Display Scores", use_container_width=True):
+        st.session_state.display_mode = 'scores'
+        st.rerun()
 
     if ctrl_cols[1].button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
         st.session_state.timer_running = False
         st.rerun()
 
-    if ctrl_cols[3].button("Reset Game"):
+    # Reset Round button: brings the round back to 3-pointer for current team
+    if ctrl_cols[2].button("Reset Round", use_container_width=True):
+        st.session_state.timer_stage = 'off'
+        st.session_state.timer_running = False
+        st.session_state.points_awarded = False
+        st.rerun()
+
+    if ctrl_cols[4].button("Reset Game"):
         st.session_state.clear()
         initialize_session_state()
         st.rerun()
@@ -313,7 +325,21 @@ def main():
     if st.session_state.mode == 'setup':
         setup_mode()
     elif st.session_state.mode == 'scoring':
-        scoring_mode()
+        if st.session_state.get('display_mode', 'quiz') == 'quiz':
+            scoring_mode()
+        else:
+            # Simple scoreboard view
+            st.markdown("<h2 style='text-align:center;'>Current Scores</h2>", unsafe_allow_html=True)
+            team_names = st.session_state.team_names
+            scores = st.session_state.scores
+            cols = st.columns(3)
+            for i, team in enumerate(team_names):
+                with cols[i]:
+                    st.metric(label=f"**{team}**", value=f"{scores.get(team, 0)} Points")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Back to Quiz Master", key="back_to_quiz_master"):
+                st.session_state.display_mode = 'quiz'
+                st.rerun()
 
 if __name__ == '__main__':
     main()
