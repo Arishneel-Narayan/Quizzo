@@ -63,7 +63,7 @@ def initialize_session_state():
     """Sets up the default values for the session state."""
     defaults = {
         'mode': 'setup',
-        'timers': {'x': 20, 'y': 15, 'z': 10},
+        'timers': {'x': 20, 'y': 15, 'z': 5},
         'timer_running': False,
         'timer_value': 0,
         'timer_start_time': None,
@@ -137,7 +137,8 @@ def setup_mode():
         col_x, col_y, col_z = st.columns(3)
         with col_x: st.session_state.timers['x'] = st.number_input('Timer for 3 Pts', value=20, min_value=1)
         with col_y: st.session_state.timers['y'] = st.number_input('Timer for 2 Pts', value=15, min_value=1)
-        with col_z: st.session_state.timers['z'] = st.number_input('Timer for 1 Pt', value=10, min_value=1)
+        with col_z:
+            st.session_state.timers['z'] = st.number_input('Timer for 1 Pt', value=5, min_value=1)
 
         if st.form_submit_button("Start Game!"):
             if all(name.strip() for name in st.session_state.team_names):
@@ -180,11 +181,11 @@ def scoring_mode():
                 st.write(f"**{team}**")
                 col1, col2 = st.columns([1,1])
                 with col1:
-                    if st.button(f"➖", key=f"dec_{team}"):
+                    if st.button(f"➖", key=f"dec_{team}", use_container_width=True):
                         st.session_state.scores[team] = max(0, st.session_state.scores[team] - 1)
                         st.rerun()
                 with col2:
-                    if st.button(f"➕", key=f"inc_{team}"):
+                    if st.button(f"➕", key=f"inc_{team}", use_container_width=True):
                         st.session_state.scores[team] += 1
                         st.rerun()
 
