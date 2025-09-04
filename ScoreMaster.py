@@ -283,35 +283,36 @@ def scoring_mode():
         st.session_state.points_awarded = False
         st.rerun()
 
-    ctrl_cols = st.columns(6)
+    # --- Organize control buttons into two rows for better UI ---
+    timer_cols = st.columns(2)
+    action_cols = st.columns(3)
+
+    # First row: Timer controls
     if st.session_state.timer_stage == 'off':
-        if ctrl_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
+        if timer_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
             start_timer('first_person', 'x')
     elif st.session_state.timer_stage == 'first_person':
-        if ctrl_cols[0].button("Start Timer (2 Pts)", use_container_width=True):
+        if timer_cols[0].button("Start Timer (2 Pts)", use_container_width=True):
             start_timer('team', 'y')
     elif st.session_state.timer_stage == 'team':
-        if ctrl_cols[0].button("Start Timer (1 Pt)", use_container_width=True):
+        if timer_cols[0].button("Start Timer (1 Pt)", use_container_width=True):
             start_timer('opposing_team', 'z')
-    # Display Scores button
-    if ctrl_cols[5].button("Display Scores", use_container_width=True):
-        st.session_state.display_mode = 'scores'
-        st.rerun()
-
-    if ctrl_cols[1].button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
+    if timer_cols[1].button("Stop Timer", use_container_width=True, disabled=not st.session_state.timer_running):
         st.session_state.timer_running = False
         st.rerun()
 
-    # Reset Round button: brings the round back to 3-pointer for current team
-    if ctrl_cols[2].button("Reset Round", use_container_width=True):
+    # Second row: Round/Game/Display controls
+    if action_cols[0].button("Reset Round", use_container_width=True):
         st.session_state.timer_stage = 'off'
         st.session_state.timer_running = False
         st.session_state.points_awarded = False
         st.rerun()
-
-    if ctrl_cols[4].button("Reset Game"):
+    if action_cols[1].button("Reset Game", use_container_width=True):
         st.session_state.clear()
         initialize_session_state()
+        st.rerun()
+    if action_cols[2].button("Display Scores", use_container_width=True):
+        st.session_state.display_mode = 'scores'
         st.rerun()
 
     if st.session_state.timer_running:
