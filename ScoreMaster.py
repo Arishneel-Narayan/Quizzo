@@ -152,14 +152,23 @@ def scoring_mode():
     current_team_idx = st.session_state.current_team_idx
     current_team = team_names[current_team_idx]
 
-    # --- Toggle for Score Edit Controls ---
-    show_edit = st.checkbox("Show Score Edit Buttons", value=False, key="show_edit_scores")
+    # --- Display Scoreboard (edit controls handled at bottom) ---
     cols = st.columns(3)
     for i, team in enumerate(team_names):
         with cols[i]:
             st.metric(label=f"**{team}**", value=f"{scores.get(team, 0)} Points")
-            if show_edit:
-                st.write("")
+    st.markdown("---")
+
+    # ...existing code...
+
+    # Place the edit toggle and controls at the bottom
+    show_edit = st.checkbox("Show Score Edit Buttons", value=False, key="show_edit_scores")
+    if show_edit:
+        st.markdown("<h4>Edit Scores</h4>", unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i, team in enumerate(team_names):
+            with cols[i]:
+                st.write(f"**{team}**")
                 col1, col2 = st.columns([1,1])
                 with col1:
                     if st.button(f"➖", key=f"dec_{team}"):
@@ -169,7 +178,6 @@ def scoring_mode():
                     if st.button(f"➕", key=f"inc_{team}"):
                         st.session_state.scores[team] += 1
                         st.rerun()
-    st.markdown("---")
 
     # --- Show current question stage and team ---
     stage_map = {
