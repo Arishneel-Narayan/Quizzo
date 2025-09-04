@@ -148,6 +148,15 @@ def scoring_mode():
             st.metric(label=f"**{team}**", value=f"{scores.get(team, 0)} Points")
     st.markdown("---")
 
+    # --- Show current question stage and team ---
+    stage_map = {
+        'off': 'Ready for Next Question',
+        'first_person': f"{current_team} (3 Points)",
+        'team': f"{current_team} (2 Points)",
+        'opposing_team': f"{team_names[(current_team_idx+1)%3]} & {team_names[(current_team_idx+2)%3]} (1 Point)"
+    }
+    st.markdown(f"<h3 style='text-align:center;'>Current Turn: <span style='color:#F4C430'>{stage_map.get(st.session_state.timer_stage, '')}</span></h3>", unsafe_allow_html=True)
+
     # --- Display Timer ---
     st.markdown('<div class="timer-container">', unsafe_allow_html=True)
     timer_placeholder = st.empty()
@@ -173,6 +182,15 @@ def scoring_mode():
     def award_points(team_name, points):
         st.session_state.scores[team_name] += points
         st.session_state.points_awarded = True
+        st.session_state.timer_running = False  # Stop timer immediately
+        # Advance to next team if 3-point question, else stay for 2/1-point attempts
+        if st.session_state.timer_stage == 'first_person':
+            # After 3-point question, next team gets their 3-point question
+            st.session_state.current_team_idx = (st.session_state.current_team_idx + 1) % 3
+            st.session_state.timer_stage = 'off'
+        else:
+            # After 2 or 1 point, just reset to off for same team
+            st.session_state.timer_stage = 'off'
         st.rerun()
 
     points_map = {'first_person': 3, 'team': 2, 'opposing_team': 1}
@@ -180,10 +198,33 @@ def scoring_mode():
 
     if points_to_award > 0:
         st.markdown(f"**Award {points_to_award} Points To:**")
-        score_cols = st.columns(3)
-        for i, team in enumerate(team_names):
-            if score_cols[i].button(f"✅ {team}", use_container_width=True, disabled=st.session_state.points_awarded):
-                award_points(team, points_to_award)
+        if st.session_state.timer_stage == 'first_person':
+            # Only current team can get 3 points
+            score_cols = st.columns(3)
+            for i, team in enumerate(team_names):
+                if i == current_team_idx:
+                    if score_cols[i].button(f"✅ {team}", use_container_width=True, disabled=st.session_state.points_awarded):
+                        award_points(team, points_to_award)
+                else:
+                    score_cols[i].button(f"{team}", use_container_width=True, disabled=True)
+        elif st.session_state.timer_stage == 'team':
+            # Only current team can get 2 points
+            score_cols = st.columns(3)
+            for i, team in enumerate(team_names):
+                if i == current_team_idx:
+                    if score_cols[i].button(f"✅ {team}", use_container_width=True, disabled=st.session_state.points_awarded):
+                        award_points(team, points_to_award)
+                else:
+                    score_cols[i].button(f"{team}", use_container_width=True, disabled=True)
+        elif st.session_state.timer_stage == 'opposing_team':
+            # Only the two non-current teams can get 1 point
+            score_cols = st.columns(3)
+            for i, team in enumerate(team_names):
+                if i != current_team_idx:
+                    if score_cols[i].button(f"✅ {team}", use_container_width=True, disabled=st.session_state.points_awarded):
+                        award_points(team, points_to_award)
+                else:
+                    score_cols[i].button(f"{team}", use_container_width=True, disabled=True)
 
     st.markdown("---")
 
@@ -198,7 +239,7 @@ def scoring_mode():
 
     ctrl_cols = st.columns(4)
     if st.session_state.timer_stage == 'off':
-        if ctrl_cols[0].button("Start Timer (3 Pts)", use_container_width=True):
+        if ctrl_cols[0].button(f"Start Timer (3 Pts) for {current_team}", use_container_width=True):
             start_timer('first_person', 'x')
     elif st.session_state.timer_stage == 'first_person':
         if ctrl_cols[0].button("Start Timer (2 Pts)", use_container_width=True):
@@ -211,26 +252,10 @@ def scoring_mode():
         st.session_state.timer_running = False
         st.rerun()
 
-    # Remove Next Team button. Instead, automatically advance to next team after each round.
-
     if ctrl_cols[3].button("Reset Game"):
         st.session_state.clear()
         initialize_session_state()
         st.rerun()
-
-    # Automatically advance to next team when timer_stage is reset to 'off' after a round
-    if (
-        not st.session_state.timer_running
-        and st.session_state.timer_stage == 'off'
-        and not st.session_state.points_awarded
-        and 'last_team_idx' in st.session_state
-        and st.session_state.last_team_idx != st.session_state.current_team_idx
-    ):
-        st.session_state.current_team_idx = (st.session_state.current_team_idx + 1) % 3
-        st.session_state.last_team_idx = st.session_state.current_team_idx
-        st.rerun()
-    elif 'last_team_idx' not in st.session_state:
-        st.session_state.last_team_idx = st.session_state.current_team_idx
 
     if st.session_state.timer_running:
         time.sleep(1)
