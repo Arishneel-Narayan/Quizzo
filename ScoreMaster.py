@@ -40,17 +40,20 @@ BEEP_WAV_BASE64 = generate_beep_sound()
 # --- New: Function to reliably play the beep sound ---
 
 def play_github_sound():
-    """Embeds an HTML audio player for the GitHub-hosted sound file. Only plays on user action (button click)."""
+    """Embeds an HTML audio player for the GitHub-hosted sound file. Plays on user action (button click)."""
     components.html(f"""
         <audio id='timer-audio' src='{GITHUB_SOUND_URL}'></audio>
         <script>
-        var btn = window.parent.document.getElementById('play-timer-audio-btn');
-        if(btn) {{
-            btn.onclick = function() {{
-                var audio = document.getElementById('timer-audio');
-                if(audio) audio.play();
+        // Attach click handler to the play button
+        window.addEventListener('DOMContentLoaded', function() {{
+            var btn = window.parent.document.getElementById('play-timer-audio-btn');
+            if(btn) {{
+                btn.onclick = function() {{
+                    var audio = document.getElementById('timer-audio');
+                    if(audio) audio.play();
+                }}
             }}
-        }}
+        }});
         </script>
     """, height=0)
 
@@ -205,10 +208,13 @@ def scoring_mode():
             st.session_state.timer_running = False
             timer_placeholder.markdown(f'<div class="timer-label-text">Time\'s Up!</div><div class="timer-value-text">0s</div>', unsafe_allow_html=True)
             if not st.session_state.sound_played:
-                st.warning("⏰ Time's up! Click the button below to play the sound.")
+                st.markdown("""
+                    <div style='text-align:center; margin: 20px 0;'>
+                        <span style='font-size:2rem; color:#F44336;'>⏰ Time's up!</span><br>
+                        <button id='play-timer-audio-btn' style='margin-top:15px; font-size:1.2rem; background:#F4C430; color:white; border:none; border-radius:8px; padding:12px 32px; cursor:pointer;'>🔊 Play Time's Up Sound</button>
+                    </div>
+                """, unsafe_allow_html=True)
                 play_github_sound()
-                # Add a button for user to play sound
-                st.button("🔊 Play Time's Up Sound", key="play-timer-audio-btn")
                 st.session_state.sound_played = True
             st.rerun()
     else:
